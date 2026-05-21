@@ -1,70 +1,53 @@
 # 40db-frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+Frontend Vue 3 + Vite + TypeScript del proyecto **40dB — Plataforma de Inteligencia Acústica Municipal**. Consume el backend FastAPI del repo hermano `40db-backend` y maneja auth con Supabase.
 
-## Recommended IDE Setup
+## Stack
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- Vue 3 (Composition API) + Vite + TypeScript.
+- Pinia para estado, vue-router para navegación.
+- Leaflet + `leaflet.heat` para mapas / heatmap.
+- `@supabase/supabase-js` para signup/login/refresh del JWT.
+- `jspdf` + `html2canvas` para exportes client-side.
 
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## Setup
 
 ```sh
+cp .env.example .env.local   # completar valores reales (Render + Supabase)
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+Variables obligatorias (ver `.env.example` y `docs/integracion-backend/01-mapeo-contrato.md`):
+
+- `VITE_API_BASE_URL` — backend FastAPI (Render).
+- `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` — Supabase Auth.
+- `VITE_ENABLE_ADMIN_DEMO=true|false` — gatea `/admin-dashboard/*` y `/heatmap` standalone (UI-only sin contrato de back).
+
+## Documentación
+
+| Carpeta | Contenido |
+|---|---|
+| [`docs/integracion-backend/`](./docs/integracion-backend/) | **Empieza acá.** Mapeo del frontend al contrato del backend, endpoints faltantes y plan de migración por ramas. |
+| [`docs/specs/`](./docs/specs/) | Specs funcionales originales (HU) — varias con banner de estado tras la integración. |
+| [`docs/flujo-usuario/`](./docs/flujo-usuario/) | Diagramas `.drawio.png` + [`TODO.md`](./docs/flujo-usuario/TODO.md) con lo que falta regenerar. |
+| [`CLAUDE.md`](./CLAUDE.md) | Guía para Claude Code sobre dónde consultar la doc del backend. |
+
+El contrato del back vive en `../40db-backend/docs/`.
+
+## Comandos útiles
 
 ```sh
-npm run build
+npm run dev          # dev server con HMR
+npm run build        # type-check + build de producción
+npm run type-check   # vue-tsc, sin emitir
+npm run lint         # oxlint + eslint
+npm run test:unit    # vitest
+npm run test:e2e:dev # cypress contra `vite dev`
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+## Setup recomendado
 
-```sh
-npm run test:unit
-```
-
-### Run End-to-End Tests with [Cypress](https://www.cypress.io/)
-
-```sh
-npm run test:e2e:dev
-```
-
-This runs the end-to-end tests against the Vite development server.
-It is much faster than the production build.
-
-But it's still recommended to test the production build with `test:e2e` before deploying (e.g. in CI environments):
-
-```sh
-npm run build
-npm run test:e2e
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+- **IDE:** VS Code + [Vue (Official / Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (sin Vetur).
+- **Navegador:** Vue.js devtools — [Chrome](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) o [Firefox](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/).
+- **Config Vite:** ver [referencia oficial](https://vite.dev/config/).
