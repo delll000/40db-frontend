@@ -7,6 +7,7 @@ import KpiCard from '@/components/common/KpiCard.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
+import BasePendingBanner from '@/components/common/BasePendingBanner.vue'
 import type { Sensor, SensorStatusSummary } from '@/types/sensor'
 
 const auth = useAuthStore()
@@ -87,6 +88,11 @@ function statusTone(s: Sensor['status']) {
         <p class="ah__sub">Resumen general del sistema 40dB en Maipú.</p>
       </div>
     </header>
+
+    <BasePendingBanner
+      message="Los KPIs de salud de sensores y la tabla inferior usan datos demo. El backend MVP aún no expone los endpoints de catálogo y resumen."
+      doc-ref="02-endpoints-faltantes-back.md §1, §2"
+    />
 
     <!-- KPIs salud sensores -->
     <section class="ah__kpis">

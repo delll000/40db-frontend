@@ -1,3 +1,9 @@
+/**
+ * MOCK — el backend MVP no expone endpoints de hardware/CRUD de sensores.
+ * Cubre las vistas `/admin-dashboard/hardware` solo en modo demo
+ * (`VITE_ENABLE_ADMIN_DEMO=true`). Pendiente: §3 de
+ * `docs/integracion-backend/02-endpoints-faltantes-back.md`.
+ */
 import { mock } from './_utils'
 import { DEVICES } from './_mockData/devices'
 import type { Device } from '@/types/device'

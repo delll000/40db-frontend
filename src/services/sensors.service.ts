@@ -1,3 +1,9 @@
+/**
+ * MOCK — el backend MVP no expone un catálogo de sensores via HTTP. Solo
+ * los toca indirectamente vía /buscar-evidencia y /heatmaps (agregado).
+ * Usado por las vistas admin en modo demo (`VITE_ENABLE_ADMIN_DEMO=true`).
+ * Pendiente: §1 de `docs/integracion-backend/02-endpoints-faltantes-back.md`.
+ */
 import { mock } from './_utils'
 import { SENSORS, ZONES } from './_mockData/sensors'
 import type { Sensor, SensorStatusSummary } from '@/types/sensor'

@@ -2,6 +2,7 @@
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseEmpty from '@/components/common/BaseEmpty.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BasePendingBanner from '@/components/common/BasePendingBanner.vue'
 </script>
 
 <template>
@@ -16,6 +17,11 @@ import BaseButton from '@/components/common/BaseButton.vue'
         Eventos de conectividad por sensor en los últimos 30 días.
       </p>
     </header>
+
+    <BasePendingBanner
+      message="El backend MVP no expone historial de conectividad por sensor. El estado online/intermitente/offline se deriva client-side de la última lectura."
+      doc-ref="02-endpoints-faltantes-back.md §9"
+    />
 
     <BaseCard padding="lg">
       <BaseEmpty
