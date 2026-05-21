@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http'
+import { catalogosService } from '@/services/catalogos.service'
 import { useAuthStore } from '@/stores/auth'
 import { HOME_BY_ROLE } from '@/types/auth'
 import { useApiError } from '@/composables/useApiError'
@@ -30,10 +31,8 @@ const comunaOptions = computed(() =>
 )
 
 onMounted(async () => {
-  // El endpoint es público — `skipAuth: true` evita inyectar Authorization si
-  // el JWT estuviera caduco mientras llegamos acá.
   try {
-    comunas.value = await http.get<Comuna[]>('/api/v1/comunas', { skipAuth: true })
+    comunas.value = await catalogosService.getComunas()
   } catch (e) {
     showError(e, 'No se pudo cargar el listado de comunas')
   } finally {
