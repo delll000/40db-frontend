@@ -1,6 +1,5 @@
 import { mock } from './_utils'
 import { SENSORS } from './_mockData/sensors'
-import { ALERTS } from './_mockData/alerts'
 import type { HeatmapKpis } from '@/types/kpi'
 import type { SensorStatusSummary } from '@/types/sensor'
 
@@ -72,15 +71,4 @@ export const kpisService = {
     )
   },
 
-  /** Conteo de alertas por estado para el funcionario */
-  alertsBreakdown: async (): Promise<Record<'activa' | 'atendida' | 'cerrada', number>> => {
-    return mock(
-      {
-        activa: ALERTS.filter((a) => a.status === 'activa').length,
-        atendida: ALERTS.filter((a) => a.status === 'atendida').length,
-        cerrada: ALERTS.filter((a) => a.status === 'cerrada').length,
-      },
-      200,
-    )
-  },
 }
