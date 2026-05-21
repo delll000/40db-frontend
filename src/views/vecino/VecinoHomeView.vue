@@ -5,7 +5,7 @@ import { useToast } from '@/composables/useToast'
 import { useApiError } from '@/composables/useApiError'
 import { reportesService } from '@/services/reportes.service'
 import { useHeatmapData } from '@/composables/useHeatmapData'
-import { defaultHeatmapFilters } from '@/types/filters'
+import { defaultHeatmapQuery } from '@/types/filters'
 import HeatmapMap from '@/components/mapa/HeatmapMap.vue'
 import HeatmapLegend from '@/components/mapa/HeatmapLegend.vue'
 import ReporteMapPicker from '@/components/reportes/ReporteMapPicker.vue'
@@ -27,9 +27,13 @@ const auth = useAuthStore()
 const toast = useToast()
 const { showError } = useApiError()
 
-// Heatmap mock (rama 5 lo cambia a back real)
-const filters = ref(defaultHeatmapFilters())
-const { points, kpis, loading: heatmapLoading } = useHeatmapData(filters)
+// Heatmap embebido (mismo backend que la vista /heatmap; bbox lo emite el mapa).
+const heatmapQuery = ref(defaultHeatmapQuery())
+const { points, kpis, loading: heatmapLoading } = useHeatmapData(heatmapQuery)
+
+function onHeatmapBbox(bbox: string) {
+  heatmapQuery.value = { ...heatmapQuery.value, bbox }
+}
 
 // Mis reportes (back real)
 const myReports = ref<ReporteListItem[]>([])
@@ -252,7 +256,12 @@ function formatDate(iso: string): string {
         <HeatmapLegend />
       </div>
       <div class="vh__map">
-        <HeatmapMap :points="points" readonly min-height="420px" />
+        <HeatmapMap
+          :points="points"
+          readonly
+          min-height="420px"
+          @bbox-change="onHeatmapBbox"
+        />
       </div>
     </section>
 

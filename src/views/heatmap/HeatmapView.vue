@@ -1,28 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import HeatmapMap from '@/components/mapa/HeatmapMap.vue'
 import HeatmapKpis from '@/components/mapa/HeatmapKpis.vue'
-import HeatmapFilters from '@/components/mapa/HeatmapFilters.vue'
 import HeatmapLegend from '@/components/mapa/HeatmapLegend.vue'
 import HeatmapExport from '@/components/mapa/HeatmapExport.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
 import { useHeatmapData } from '@/composables/useHeatmapData'
-import { sensorsService } from '@/services/sensors.service'
-import { defaultHeatmapFilters } from '@/types/filters'
-import type { HeatmapFilters as HmFilters } from '@/types/filters'
-import type { Sensor } from '@/types/sensor'
+import {
+  defaultHeatmapQuery,
+  HEATMAP_BUCKETS,
+  HEATMAP_RANGES,
+  rangeToWindow,
+  type HeatmapRangeHours,
+} from '@/types/filters'
+import type { HeatmapBucketMinutes } from '@/types/api'
 
-const filters = ref<HmFilters>(defaultHeatmapFilters())
-const { points, kpis, loading, error, refresh } = useHeatmapData(filters)
+const query = ref(defaultHeatmapQuery())
+const rangeHours = ref<HeatmapRangeHours>(24)
 
-const zones = ref<string[]>([])
-const sensors = ref<Sensor[]>([])
+const { points, kpis, loading, error, refresh } = useHeatmapData(query)
 
-onMounted(async () => {
-  zones.value = await sensorsService.zones()
-  sensors.value = await sensorsService.list()
-})
+function onBboxChange(bbox: string) {
+  query.value = { ...query.value, bbox }
+}
+
+function onRangeChange(hours: HeatmapRangeHours) {
+  rangeHours.value = hours
+  query.value = { ...query.value, ...rangeToWindow(hours) }
+}
+
+function onBucketChange(bucket: HeatmapBucketMinutes) {
+  query.value = { ...query.value, bucketMinutes: bucket }
+}
 
 const mapRef = ref<InstanceType<typeof HeatmapMap> | null>(null)
 const mapElement = computed(() => mapRef.value?.getElement?.() ?? null)
@@ -32,6 +43,9 @@ const lastUpdate = computed(() => {
   const d = new Date(kpis.value.lastUpdate)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
 })
+
+const rangeOptions = HEATMAP_RANGES.map((r) => ({ value: r.value, label: r.label }))
+const bucketOptions = HEATMAP_BUCKETS.map((b) => ({ value: b.value, label: b.label }))
 </script>
 
 <template>
@@ -39,9 +53,9 @@ const lastUpdate = computed(() => {
     <!-- Top bar -->
     <header class="hview__head">
       <div>
-        <h1 class="hview__title">Mapa de Ruido — Maipú</h1>
+        <h1 class="hview__title">Mapa de Ruido</h1>
         <p class="hview__sub">
-          Monitoreo en tiempo real con sensores acústicos. Actualización cada 60 s.
+          Lecturas agregadas por celda y bucket temporal. Mueve el mapa para cargar otra zona.
         </p>
       </div>
       <div class="hview__meta">
@@ -59,12 +73,12 @@ const lastUpdate = computed(() => {
       </div>
     </header>
 
-    <!-- Alerta sostenida -->
+    <!-- Alerta sostenida (pendiente §5 de endpoints-faltantes) -->
     <div v-if="kpis?.alertSustained" class="hview__alert" role="alert">
       <span class="hview__alert-icon" aria-hidden="true">●</span>
       <strong>Zona crítica:</strong>
       {{ kpis.alertSustained.zone }} supera 75 dB(A) durante
-      {{ kpis.alertSustained.minutes }} min. Se recomienda priorizar atención.
+      {{ kpis.alertSustained.minutes }} min.
     </div>
 
     <!-- Error -->
@@ -77,11 +91,20 @@ const lastUpdate = computed(() => {
     <HeatmapKpis :kpis="kpis" :loading="loading" />
 
     <!-- Filtros -->
-    <HeatmapFilters
-      v-model="filters"
-      :zones="zones"
-      :sensors="sensors"
-    />
+    <section class="hview__filters">
+      <BaseSelect
+        :model-value="rangeHours"
+        :options="rangeOptions"
+        label="Rango temporal"
+        @update:model-value="(v) => onRangeChange(Number(v) as HeatmapRangeHours)"
+      />
+      <BaseSelect
+        :model-value="query.bucketMinutes"
+        :options="bucketOptions"
+        label="Tamaño de bucket"
+        @update:model-value="(v) => onBucketChange(Number(v) as HeatmapBucketMinutes)"
+      />
+    </section>
 
     <!-- Mapa + leyenda + exportes -->
     <section class="hview__map-wrap">
@@ -89,7 +112,12 @@ const lastUpdate = computed(() => {
         <HeatmapLegend />
         <HeatmapExport :map-element="mapElement" :points="points" :kpis="kpis" />
       </div>
-      <HeatmapMap ref="mapRef" :points="points" min-height="560px" />
+      <HeatmapMap
+        ref="mapRef"
+        :points="points"
+        min-height="560px"
+        @bbox-change="onBboxChange"
+      />
     </section>
   </div>
 </template>
@@ -175,6 +203,16 @@ const lastUpdate = computed(() => {
   padding: var(--space-3) var(--space-4);
   color: var(--color-danger);
   font-size: var(--text-sm);
+}
+
+.hview__filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 240px));
+  gap: var(--space-4);
+}
+
+@media (max-width: 540px) {
+  .hview__filters { grid-template-columns: 1fr; }
 }
 
 .hview__map-wrap {
