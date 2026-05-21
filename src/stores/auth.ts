@@ -1,76 +1,153 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import type { Role, Session, User } from '@/types/auth'
-
-const STORAGE_KEY = '40db.session.v1'
+import { supabase } from '@/services/supabase'
+import { http } from '@/services/http'
+import { isAuthError } from '@/services/errors'
+import { tipoToRole, type Role, type UsuarioMe } from '@/types/auth'
 
 /**
- * Mock de usuarios por rol. En un backend real, el usuario viene del
- * payload de OAuth + lookup en la BD; aquí simulamos uno por rol.
+ * Fuente de verdad de la autenticación.
+ *
+ * - La sesión (JWT, refresh) la maneja Supabase Auth (`@supabase/supabase-js`).
+ *   El SDK persiste en localStorage y refresca tokens automáticamente.
+ * - El perfil de negocio (`tipo`, `comuna_id`, etc.) proviene de
+ *   `GET /api/v1/usuarios/me` — vive en el backend, no en el JWT.
+ *
+ * Por convención del back (`auth.md §7`), `comuna_id` arranca en null tras
+ * el signup; el flujo onboarding lo completa con `PATCH /usuarios/me`. La
+ * computed `needsOnboarding` exponemos para el guard del router.
  */
-function buildMockUser(role: Role): User {
-  const profiles: Record<Role, Omit<User, 'id'>> = {
-    admin: { nombre: 'Admin Demo', email: 'admin@40db.demo' },
-    vecino: { nombre: 'Camila Vecina', email: 'camila.vecina@correo.cl' },
-    funcionario: { nombre: 'Pedro Funcionario', email: 'pedro@maipu.cl' },
-  }
-  return { id: `mock-${role}`, ...profiles[role] }
-}
-
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null)
-  const role = ref<Role | null>(null)
+  const profile = ref<UsuarioMe | null>(null)
+  const initializing = ref(true)
 
-  const isAuthenticated = computed(() => user.value !== null && role.value !== null)
-  const displayName = computed(() => user.value?.nombre ?? '')
+  const isAuthenticated = computed(() => profile.value !== null)
+  const needsOnboarding = computed(
+    () => profile.value !== null && profile.value.comuna_id === null,
+  )
+  const role = computed<Role | null>(() =>
+    profile.value ? tipoToRole(profile.value.tipo) : null,
+  )
+  const displayName = computed(() => profile.value?.nombre ?? '')
 
-  function persist() {
-    if (user.value && role.value) {
-      const session: Session = { user: user.value, role: role.value }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-    } else {
-      localStorage.removeItem(STORAGE_KEY)
-    }
-  }
-
-  function restore() {
+  /**
+   * Carga el perfil desde el back. Si el JWT es inválido / el usuario fue
+   * desactivado, limpia la sesión local.
+   */
+  async function loadProfile(): Promise<void> {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as Session
-      if (parsed?.user && parsed?.role) {
-        user.value = parsed.user
-        role.value = parsed.role
+      profile.value = await http.get<UsuarioMe>('/api/v1/usuarios/me')
+    } catch (e) {
+      if (isAuthError(e)) {
+        await supabase.auth.signOut()
+        profile.value = null
+        return
       }
-    } catch {
-      localStorage.removeItem(STORAGE_KEY)
+      throw e
     }
   }
 
   /**
-   * Login mock — en producción esto recibiría el id_token de Google,
-   * lo enviaría al backend y guardaría el resultado. Aquí solo seteamos
-   * el rol elegido en el selector de desarrollo.
+   * Llamado UNA vez al boot (`main.ts`) y por el listener
+   * `onAuthStateChange`. Restaura desde la sesión persistida.
+   *
+   * No re-lanza errores: si el backend está caído al boot, dejamos al usuario
+   * como anónimo y los guards lo manejarán cuando intente entrar a una ruta
+   * protegida. Sin esta defensa, el `await` en `main.ts` rechazaría y la app
+   * no montaría.
    */
-  async function login(selectedRole: Role) {
-    user.value = buildMockUser(selectedRole)
-    role.value = selectedRole
-    persist()
+  async function restore(): Promise<void> {
+    initializing.value = true
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (data.session) {
+        try {
+          await loadProfile()
+        } catch (e) {
+          console.warn('[auth] No se pudo cargar el perfil al boot:', e)
+          profile.value = null
+        }
+      } else {
+        profile.value = null
+      }
+    } finally {
+      initializing.value = false
+    }
   }
 
-  function logout() {
-    user.value = null
-    role.value = null
-    persist()
+  /**
+   * Signup email + password. `nombre` se guarda en `raw_user_meta_data.full_name`,
+   * que el trigger `handle_new_user` del back lee para poblar `usuario.nombre`
+   * (`auth.md §3`).
+   *
+   * Comportamiento según config de Supabase:
+   * - Confirm email ON: signUp devuelve `user` pero `session = null`.
+   *   El front debe mostrar "revisa tu correo".
+   * - Confirm email OFF: devuelve `user` Y `session` → login automático.
+   */
+  async function signUp(params: {
+    email: string
+    password: string
+    nombre: string
+  }): Promise<{ needsEmailConfirmation: boolean }> {
+    const { data, error } = await supabase.auth.signUp({
+      email: params.email,
+      password: params.password,
+      options: { data: { full_name: params.nombre } },
+    })
+    if (error) throw error
+
+    if (data.session) {
+      await loadProfile()
+      return { needsEmailConfirmation: false }
+    }
+    return { needsEmailConfirmation: true }
+  }
+
+  async function signInWithPassword(params: {
+    email: string
+    password: string
+  }): Promise<void> {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: params.email,
+      password: params.password,
+    })
+    if (error) throw error
+    await loadProfile()
+  }
+
+  async function signOut(): Promise<void> {
+    await supabase.auth.signOut()
+    profile.value = null
+  }
+
+  /**
+   * Suscripción al ciclo de vida de la sesión. Se invoca una sola vez desde
+   * `main.ts`. Cubre logout en otra pestaña, refresh fallido del JWT, etc.
+   */
+  function subscribeToAuthChanges(): void {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        profile.value = null
+        return
+      }
+      // Para SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED → asegurar perfil fresco.
+      void loadProfile()
+    })
   }
 
   return {
-    user,
-    role,
+    profile,
+    initializing,
     isAuthenticated,
+    needsOnboarding,
+    role,
     displayName,
-    login,
-    logout,
     restore,
+    loadProfile,
+    signUp,
+    signInWithPassword,
+    signOut,
+    subscribeToAuthChanges,
   }
 })

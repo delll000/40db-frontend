@@ -73,7 +73,7 @@ async function openChange(alert: Alert, next: AlertStatus) {
 }
 
 async function submitChange() {
-  if (!selected.value || !targetStatus.value || !auth.user) return
+  if (!selected.value || !targetStatus.value || !auth.profile) return
   if (!comment.value.trim()) {
     commentError.value = 'El comentario es obligatorio para registrar el cambio.'
     return
@@ -84,7 +84,7 @@ async function submitChange() {
       selected.value.id,
       targetStatus.value,
       comment.value,
-      { id: auth.user.id, name: auth.user.nombre },
+      { id: auth.profile.id, name: auth.profile.nombre },
     )
     // Actualizar la fila localmente
     const idx = alerts.value.findIndex((a) => a.id === updated.id)

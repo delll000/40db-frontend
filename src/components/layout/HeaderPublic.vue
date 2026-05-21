@@ -16,8 +16,8 @@ const ctaTo = computed(() => {
 
 const ctaLabel = computed(() => (auth.isAuthenticated ? 'Ir a mi panel' : 'Iniciar sesión'))
 
-function logout() {
-  auth.logout()
+async function logout() {
+  await auth.signOut()
   router.push('/home')
 }
 </script>
