@@ -2,6 +2,7 @@
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseEmpty from '@/components/common/BaseEmpty.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BasePendingBanner from '@/components/common/BasePendingBanner.vue'
 </script>
 
 <template>
@@ -16,6 +17,11 @@ import BaseButton from '@/components/common/BaseButton.vue'
         Genera reportes institucionales en PDF, Excel o CSV con filtros por fecha y zona.
       </p>
     </header>
+
+    <BasePendingBanner
+      message="El backend MVP solo expone listados scoped por comuna o por usuario. Para exportes admin cross-comuna se necesita un endpoint agregado."
+      doc-ref="02-endpoints-faltantes-back.md §8"
+    />
 
     <BaseCard padding="lg">
       <BaseEmpty

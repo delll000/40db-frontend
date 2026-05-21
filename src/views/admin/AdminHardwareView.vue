@@ -2,6 +2,7 @@
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseEmpty from '@/components/common/BaseEmpty.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BasePendingBanner from '@/components/common/BasePendingBanner.vue'
 </script>
 
 <template>
@@ -14,6 +15,11 @@ import BaseButton from '@/components/common/BaseButton.vue'
       <h1>Gestión de hardware IoT</h1>
       <p class="page__sub">Registra, edita y da de baja sensores acústicos.</p>
     </header>
+
+    <BasePendingBanner
+      message="El backend MVP no expone endpoints para listar ni gestionar sensores. La sección está disponible solo como demo de UI."
+      doc-ref="02-endpoints-faltantes-back.md §1, §3"
+    />
 
     <BaseCard padding="lg">
       <BaseEmpty
