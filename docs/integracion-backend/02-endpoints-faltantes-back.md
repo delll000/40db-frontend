@@ -275,6 +275,32 @@ y permitir subirlo via `PATCH /usuarios/me/avatar` (multipart o URL signed con S
 
 ---
 
+## 12. 🟡 `reporte.comuna_id` — derivación ambigua
+
+**Para qué:** decidir y documentar **de qué fuente** se toma el `comuna_id` que se guarda en cada `reporte`. El front no lo envía en el body de `POST /reportes` (`api.md §4.5`); lo elige el server.
+
+**Estado actual.** Detectado al testear el flow end-to-end con un usuario en Maipú (fuera del seed `Santiago / Providencia / Las Condes`):
+
+- La RPC `crear_reporte_con_validacion(p_usuario_id, p_comuna_id, ...)` recibe `p_comuna_id` ya resuelto desde Python (`migrations/20260519000000_initial_schema.sql §9.3`).
+- El use case (no inspeccionado, pero implícito en `backend.md §5.1`) pasa **`usuario.comuna_id`** — la comuna del reportante, no la del lugar del incidente.
+- Consecuencia: un vecino de Santiago que reporta ruido en Maipú genera un `reporte` con `comuna_id = Santiago`. El panel del funcionario de Maipú **no lo verá** porque `GET /reportes/comuna/13` filtra por `reporte.comuna_id`.
+
+**Opciones:**
+
+1. **Mantener `usuario.comuna_id`** (status quo). Pro: simple, no requiere mapeo geo→comuna. Con: el reporte queda mal-ruteado si el ciudadano denuncia fuera de su comuna.
+2. **Derivar de `(latitud, longitud)`** via una función `point_to_comuna(lat, lng)` con polígonos de comuna. Requiere cargar los polígonos (shapefile del INE o similar) y agregar PostGIS query. Pro: el reporte llega al municipio correcto. Con: trabajo extra de data.
+3. **Pedir comuna al usuario en el form** (campo explícito en `POST /reportes`). Pro: control del usuario; trivial de implementar en el back y el front. Con: extra step en UX, posible error humano.
+
+`backend.md §5.1` listaba esto como decisión abierta:
+
+> "Validar en el use case: `usuario.comuna_id` está seteado (si no, derivar de lat/lng o rechazar — decidir al implementar)."
+
+**Recomendación del front:** opción 2 (geo-derivada) es la correcta para producción. Como bridge, el back puede empezar con opción 1 + agregar warning en respuesta si `usuario.comuna_id ≠ comuna_polígono(lat, lng)`, y migrar a 2 cuando se cargen los polígonos.
+
+**Workaround actual del front:** ninguno — el front no controla esto. El issue se manifiesta solo cuando vecino y funcionario están en comunas distintas. Para testing E2E, ambos deben estar en la misma comuna seeded.
+
+---
+
 ## Resumen rápido
 
 | Prio | Item | Bloquea vista |
@@ -283,6 +309,7 @@ y permitir subirlo via `PATCH /usuarios/me/avatar` (multipart o URL signed con S
 | 🟡 | §2 Resumen salud sensores | `/admin-dashboard/` (KPIs reales) |
 | 🟡 | §3 CRUD sensores | `/admin-dashboard/hardware` (real) |
 | 🟡 | §6 Rol admin server-side | Todo `/admin-dashboard/*` (real) |
+| 🟡 | §12 derivación de `reporte.comuna_id` | Reportes cross-comuna mal-ruteados |
 | 🟢 | §4 `categoria` en reportes | Análisis post-MVP |
 | 🟢 | §5 Alerta sostenida | KPI del heatmap |
 | 🟢 | §7 CRUD usuarios | `/admin-dashboard/usuarios` (real) |
