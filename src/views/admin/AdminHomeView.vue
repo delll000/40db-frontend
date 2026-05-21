@@ -83,7 +83,7 @@ function statusTone(s: Sensor['status']) {
     <header class="ah__head">
       <div>
         <p class="ah__eyebrow">Panel administrador</p>
-        <h1 class="ah__title">Hola, {{ auth.user?.nombre }}</h1>
+        <h1 class="ah__title">Hola, {{ auth.profile?.nombre }}</h1>
         <p class="ah__sub">Resumen general del sistema 40dB en Maipú.</p>
       </div>
     </header>

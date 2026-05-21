@@ -29,9 +29,8 @@ const myReports = ref<Report[]>([])
 
 onMounted(async () => {
   zones.value = await sensorsService.zones()
-  if (auth.user) {
-    myReports.value = await reportsService.byCitizen(auth.user.email)
-  }
+  // TODO rama 4 (feat/reportes-real): reemplazar por GET /api/v1/reportes/mios.
+  // El back ya scopea por JWT; no se necesita email del usuario.
 })
 
 const lastReport = computed<Report | null>(() => myReports.value[0] ?? null)
@@ -65,13 +64,16 @@ function validate(): boolean {
 }
 
 async function submitReport() {
-  if (!auth.user) return
+  if (!auth.profile) return
   if (!validate()) return
   submitting.value = true
   try {
+    // TODO rama 4: payload contra POST /api/v1/reportes (titulo, descripcion,
+    // latitud, longitud, lectura_evidencia_id?). Mientras tanto, mock con
+    // los campos legacy del front (citizenEmail toma un placeholder).
     const created = await reportsService.create({
-      citizenName: auth.user.nombre,
-      citizenEmail: auth.user.email,
+      citizenName: auth.profile.nombre,
+      citizenEmail: `${auth.profile.id}@placeholder.local`,
       category: form.value.category,
       description: form.value.description,
       zone: form.value.zone,
@@ -97,7 +99,7 @@ async function submitReport() {
     <header class="vh__hero">
       <div>
         <p class="vh__eyebrow">Mi comuna</p>
-        <h1 class="vh__title">Hola, {{ auth.user?.nombre }}</h1>
+        <h1 class="vh__title">Hola, {{ auth.profile?.nombre }}</h1>
         <p class="vh__sub">
           Consulta el ruido de tu sector en tiempo real y reporta al municipio cuando
           superes los niveles tolerables.
