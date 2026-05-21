@@ -14,6 +14,8 @@ declare module 'vue-router' {
     roles?: Role[]
     /** Título mostrado en la pestaña del navegador. */
     title?: string
+    /** Si true, el guard NO redirige a /onboarding aunque falte (vista propia de onboarding). */
+    allowIncompleteOnboarding?: boolean
   }
 }
 
@@ -31,6 +33,17 @@ const routes: RouteRecordRaw[] = [
     name: 'auth',
     component: () => import('@/views/auth/LoginView.vue'),
     meta: { layout: 'public', guestOnly: true, title: 'Iniciar sesión' },
+  },
+  {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: () => import('@/views/auth/OnboardingView.vue'),
+    meta: {
+      layout: 'public',
+      requiresAuth: true,
+      allowIncompleteOnboarding: true,
+      title: 'Completa tu perfil',
+    },
   },
 
   {
@@ -126,7 +139,7 @@ router.beforeEach((to) => {
 
   // 1. guestOnly: si ya está autenticado, sacarlo de /auth.
   if (to.meta.guestOnly && auth.isAuthenticated && auth.role) {
-    return HOME_BY_ROLE[auth.role]
+    return auth.needsOnboarding ? '/onboarding' : HOME_BY_ROLE[auth.role]
   }
 
   // 2. requiresAuth: si no está autenticado, mandar a login con redirect.
@@ -134,7 +147,27 @@ router.beforeEach((to) => {
     return { path: '/auth', query: { redirect: to.fullPath } }
   }
 
-  // 3. roles: si está autenticado pero el rol no califica, mandarlo a SU home
+  // 3. onboarding pendiente: si el perfil del back tiene comuna_id=null,
+  //    forzar el flujo /onboarding salvo en la propia vista.
+  if (
+    auth.isAuthenticated &&
+    auth.needsOnboarding &&
+    !to.meta.allowIncompleteOnboarding
+  ) {
+    return { path: '/onboarding' }
+  }
+
+  // 4. Si NO necesita onboarding y va a /onboarding, redirigir al home.
+  if (
+    auth.isAuthenticated &&
+    !auth.needsOnboarding &&
+    to.name === 'onboarding' &&
+    auth.role
+  ) {
+    return HOME_BY_ROLE[auth.role]
+  }
+
+  // 5. roles: si está autenticado pero el rol no califica, mandarlo a SU home
   //    (no a /auth, eso causaría loop).
   if (required.length > 0) {
     if (!auth.role || !required.includes(auth.role)) {
