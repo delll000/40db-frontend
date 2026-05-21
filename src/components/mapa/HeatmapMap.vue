@@ -23,6 +23,11 @@ const props = withDefaults(
   },
 )
 
+const emit = defineEmits<{
+  /** Bbox del viewport actual, listo para pasarse como `?bbox=` al back. */
+  'bbox-change': [bbox: string]
+}>()
+
 const mapEl = ref<HTMLDivElement | null>(null)
 let map: L.Map | null = null
 // `any` aquí porque leaflet.heat no tiene tipos oficiales
@@ -45,6 +50,10 @@ onMounted(() => {
 
   renderHeat()
 
+  // Emitir bbox inicial + en cada movimiento del viewport.
+  emitBbox()
+  map.on('moveend', emitBbox)
+
   // Recalcular dimensiones cuando el contenedor cambie de tamaño
   if (typeof ResizeObserver !== 'undefined') {
     const ro = new ResizeObserver(() => map?.invalidateSize())
@@ -52,6 +61,16 @@ onMounted(() => {
     onBeforeUnmount(() => ro.disconnect())
   }
 })
+
+function emitBbox() {
+  if (!map) return
+  const b = map.getBounds()
+  // Formato esperado por el back: "minLng,minLat,maxLng,maxLat" (api.md §4.3).
+  const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
+    .map((n) => n.toFixed(6))
+    .join(',')
+  emit('bbox-change', bbox)
+}
 
 function renderHeat() {
   if (!map) return
