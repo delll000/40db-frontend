@@ -2,6 +2,7 @@
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseEmpty from '@/components/common/BaseEmpty.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import BasePendingBanner from '@/components/common/BasePendingBanner.vue'
 </script>
 
 <template>
@@ -16,6 +17,11 @@ import BaseButton from '@/components/common/BaseButton.vue'
         Administra cuentas de funcionarios, vecinos y otros administradores.
       </p>
     </header>
+
+    <BasePendingBanner
+      message="No hay endpoints de gestión de usuarios en el backend MVP. La promoción a 'municipalidad' se hace manualmente desde el SQL editor de Supabase."
+      doc-ref="02-endpoints-faltantes-back.md §6, §7"
+    />
 
     <BaseCard padding="lg">
       <BaseEmpty
