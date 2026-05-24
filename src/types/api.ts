@@ -53,7 +53,7 @@ export interface TipoEstado {
 // Usuario (api.md §4.10 / §4.11)
 // ──────────────────────────────────────────────────────────
 
-export type UsuarioTipo = 'ciudadano' | 'municipalidad'
+export type UsuarioTipo = 'ciudadano' | 'municipalidad' | 'admin'
 
 export interface UsuarioMe {
   id: string
@@ -75,6 +75,39 @@ export interface UsuarioPatch {
 export interface UsuarioRef {
   id: string
   nombre: string
+}
+
+// ──────────────────────────────────────────────────────────
+// Usuarios — panel admin (api.md §4.20 / §4.21 / §4.22)
+// ──────────────────────────────────────────────────────────
+
+export interface UsuarioAdminListItem {
+  id: string
+  nombre: string
+  /** JOIN a auth.users.email — no vive en public.usuario. */
+  email: string
+  telefono: string | null
+  tipo: UsuarioTipo
+  comuna_id: number | null
+  comuna_nombre: string | null
+  activo: boolean
+  created_at: string
+}
+
+export interface ListarUsuariosQuery {
+  tipo?: UsuarioTipo
+  comuna_id?: number
+  activo?: boolean
+  /** Búsqueda ILIKE sobre nombre/email. */
+  q?: string
+  limit?: number
+  cursor?: string
+}
+
+export interface PromoverInput {
+  nuevo_tipo: UsuarioTipo
+  /** Obligatorio si `nuevo_tipo='municipalidad'`. Ignorado si `ciudadano`. */
+  comuna_id?: number
 }
 
 // ──────────────────────────────────────────────────────────
@@ -134,6 +167,11 @@ export interface CrearReporteInput {
   descripcion: string
   latitud: number
   longitud: number
+  /**
+   * Resuelto en el cliente vía Nominatim (`api.md §4.5.1`). Si se omite, el
+   * backend usa `usuario.comuna_id` como fallback.
+   */
+  comuna_id?: number
   lectura_evidencia_id?: number
 }
 

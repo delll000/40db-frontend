@@ -27,16 +27,20 @@ Este documento es la **tabla de equivalencias** entre lo que vive hoy en `src/` 
 
 ## 2. Roles y rutas
 
+**Actualización 2026-05-23:** el backend ratificó el rol `admin` (D9). Ya no es UI-only.
+
 | Front (UI) | Back (`usuario.tipo`) | Rutas que aplica |
 |---|---|---|
 | `vecino` | `ciudadano` | `/vecino-home` |
 | `funcionario` | `municipalidad` | `/funcionario-home` |
-| `admin` | **— sin contrato —** | `/admin-dashboard/*`, `/heatmap` (acceso interno) |
+| `admin` | **`admin`** ← ahora real | `/admin-dashboard/*`, `/heatmap` (acceso interno) |
 
 **Implementación.**
 - `HOME_BY_ROLE` se mantiene como mapa visual.
-- El guard del router consulta el `usuario.tipo` del store (no el selector). Para `admin`, el guard valida un flag local (`isInternalAdmin`) que **no proviene del back** y por defecto está en `false`. Para desarrollo / demo, se puede toggle via env (`VITE_ENABLE_ADMIN_DEMO=true`).
-- Si el back agrega `tipo='admin'` o un endpoint de promoción, se reemplaza el flag local por la consulta al back. Está documentado en `02-endpoints-faltantes-back.md`.
+- El guard del router consulta `usuario.tipo` del store. Mapeo: `'admin' → admin`, `'municipalidad' → funcionario`, `'ciudadano' → vecino`. **Cero flags locales** — el rol viene del backend (`GET /api/v1/usuarios/me`).
+- **Decisión F1 del README se revierte:** las vistas `/admin-dashboard/*` consumen backend real cuando el backend implemente paso 11/12 del PLAN.
+- Quitar `VITE_ENABLE_ADMIN_DEMO` del `.env.example` y de los `import.meta.env` cuando los endpoints de sensores/usuarios estén implementados.
+- **Bootstrap del primer admin:** SQL manual en Supabase Dashboard una sola vez (ver `40db-backend/docs/auth.md §8.1`). Después, promoción vía `PATCH /api/v1/usuarios/{id}/promover`.
 
 ---
 
@@ -96,6 +100,111 @@ En espera → En atencion → Atendido
 
 `api.md §4.9` aclara: si la transición es `En espera → En atencion`, el back setea `reporte.atendido_por_id = auth.uid` en el mismo update. **El front no debe enviarlo** — basta con el PATCH del estado.
 
+### 3.5 Resolución de `comuna_id` con Nominatim (cliente-side)
+
+**Contrato autoritativo:** `40db-backend/docs/api.md §4.5.1`.
+
+El `POST /reportes` acepta `comuna_id` opcional en el body. La decisión del backend fue **no cargar polígonos de comuna** (sería trabajo de data + riesgos geo) y **delegar al cliente** la resolución desde lat/lng. Esto cierra el `02-endpoints-faltantes-back.md §12`.
+
+**Pipeline esperado:**
+
+1. Usuario marca punto en el map picker (Leaflet) → `lat, lng`.
+2. Front llama Nominatim reverse-geocode (API pública de OSM).
+3. Extrae nombre de comuna del response.
+4. Matchea contra catálogo `GET /api/v1/comunas` (cacheado al boot).
+5. Envía `comuna_id` resuelto en el body del `POST /reportes`. Si no match → omite el campo (backend fallback a `usuario.comuna_id`).
+
+**Snippet de referencia** (`src/services/nominatim.service.ts`):
+
+```typescript
+import type { Comuna } from '@/types/comuna';
+
+// Nominatim exige User-Agent identificable. Rate limit: 1 req/s.
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
+const USER_AGENT = '40db-frontend/1.0 (contacto@40db.cl)';
+
+interface NominatimResponse {
+  address?: {
+    county?: string;
+    city_district?: string;
+    suburb?: string;
+    town?: string;
+    [key: string]: string | undefined;
+  };
+}
+
+/**
+ * Normaliza un nombre de comuna (lowercase, sin tildes) para matchear contra
+ * el catálogo del backend. Maipú → "maipu", Las Condes → "las condes".
+ */
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * Resuelve comuna_id desde lat/lng. Retorna null si Nominatim falla o si
+ * la comuna no está en el catálogo del backend. En ese caso, el cliente
+ * debe omitir comuna_id del POST /reportes y dejar que el backend use
+ * usuario.comuna_id como fallback.
+ */
+export async function resolveComunaId(
+  lat: number,
+  lng: number,
+  catalogo: Comuna[]
+): Promise<number | null> {
+  try {
+    const url = `${NOMINATIM_URL}?lat=${lat}&lon=${lng}&format=jsonv2&accept-language=es`;
+    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    if (!res.ok) return null;
+
+    const data: NominatimResponse = await res.json();
+    const addr = data.address ?? {};
+
+    // Orden de prioridad para extraer nombre de comuna en Chile
+    const candidates = [addr.county, addr.city_district, addr.suburb, addr.town]
+      .filter((s): s is string => Boolean(s));
+
+    for (const candidate of candidates) {
+      const normalizedCandidate = normalize(candidate);
+      const match = catalogo.find(c => normalize(c.nombre) === normalizedCandidate);
+      if (match) return match.id;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+```
+
+**Uso en el form de crear reporte:**
+
+```typescript
+// Al hacer submit del form (después del map picker + buscar-evidencia opcional)
+const comunaId = await resolveComunaId(lat, lng, comunasCatalog);
+
+const body = {
+  titulo,
+  descripcion,
+  latitud: lat,
+  longitud: lng,
+  ...(comunaId !== null && { comuna_id: comunaId }),
+  ...(lecturaEvidenciaId !== null && { lectura_evidencia_id: lecturaEvidenciaId }),
+};
+
+const reporte = await reportesService.create(body);
+```
+
+**Consideraciones:**
+
+- **Nominatim rate limit** (1 req/s sin API key): no es problema para reportes individuales. Si llegamos a flujos batch, considerar hostear Nominatim propio o pasar a Mapbox/Google.
+- **User-Agent obligatorio**: Nominatim bloquea requests sin UA identificable. Cambiar el email a uno real al desplegar.
+- **Cache del catálogo**: `GET /api/v1/comunas` se llama una vez al boot de la app y se guarda en un store (Pinia) — no se vuelve a llamar por reporte.
+- **Manejo de fallo silencioso**: si Nominatim está caído, `resolveComunaId` devuelve `null` y el flow sigue. El usuario no se entera. Trazabilidad vía `correlation_id` del backend si hay mal-ruteo.
+
 ---
 
 ## 4. Alert — DEPRECADO
@@ -108,16 +217,33 @@ Toda referencia en componentes (`FuncionarioHomeView.vue`, `kpisService.alertsBr
 
 ## 5. Sensor / Device
 
-| Concepto front | Back | Estado |
+**Actualización 2026-05-23:** el backend ratificó endpoints. Esta sección se actualiza con la spec final.
+
+| Concepto front | Back | Endpoint (estado) |
 |---|---|---|
-| `Sensor` (zone, battery, signal, status, lastReportAt) | `sensor` (id, comuna_id, nombre, latitud, longitud, activo) — `bbdd.md §3.4` | **No hay endpoint público de listado de sensores.** El back solo expone sensores indirectamente vía `GET /heatmaps` (lo que importa son las **lecturas agregadas**, no el catálogo) y vía `GET /reportes/buscar-evidencia` (un sensor a la vez). |
-| `SensorStatusSummary` (online/intermitente/offline) | Estado de salud derivado de `lectura.timestamp_medicion` reciente | **No hay endpoint.** Roadmap del back. |
-| `Device` (CRUD, técnico → activo / decommissioned) | Inserción manual en tabla `sensor` (SQL editor) | **No hay endpoint.** Roadmap del back. |
+| `Sensor` (id, nombre, comuna, lat/lng, activo) | `sensor` — `bbdd.md §3.4` | ✅ `GET /api/v1/sensores?...&estado_salud=&activo=` (`api.md §4.14`). Pendiente implementar — está en PLAN paso 11. |
+| Detalle de un sensor | — | ✅ `GET /api/v1/sensores/{id}` (`api.md §4.15`). |
+| `SensorStatusSummary` (online/intermitente/offline/**sin_lecturas**) | `estado_salud` computado on-demand desde `MAX(timestamp_medicion)` con umbrales 10 min / 20 min (`bbdd.md §5.5 / D10`) | ✅ `GET /api/v1/sensores/resumen` (`api.md §4.16`). Nuevo cuarto estado `sin_lecturas` — actualizar UI. |
+| `Device` CRUD (alta, edición, baja) | — | ✅ `POST/PATCH/DELETE /api/v1/sensores` (`api.md §4.17–§4.19`). DELETE es soft (activo=false). PATCH **no acepta `comuna_id`**. |
 | `sensorsService.zones()` | No existe el concepto "zona", solo `comuna_id` | Reemplazar UI por comunas. |
 
-**Acción inmediata (rama `chore/limpieza-mocks-sin-back`):**
-- Marcar las vistas `/admin-dashboard/hardware`, `/admin-dashboard/usuarios`, `/admin-dashboard/reportes`, `/admin-dashboard/historial` con un banner `<BasePendingBanner>` indicando "MVP del backend no provee este endpoint; datos mock por ahora".
-- Mantener `services/sensors.service.ts` con mocks pero **no exponer** desde rutas autenticadas reales hasta que el back exponga `GET /api/v1/sensores` (ver `02-endpoints-faltantes-back.md`).
+**Definición de estado de salud** (importante para la UI):
+
+| Estado | Cuándo |
+|---|---|
+| `online` | Última lectura ≤ 10 min |
+| `intermitente` | Entre 10 min y 20 min sin lectura |
+| `offline` | > 20 min, **o** `sensor.activo = false` |
+| `sin_lecturas` | Sensor recién provisionado, nunca publicó |
+
+**Acción inmediata (cuando el back implemente paso 11 de su `PLAN.md`):**
+- Reemplazar mocks de `services/sensors.service.ts` por servicio real.
+- Reemplazar mocks de `services/devices.service.ts` por servicio real.
+- Quitar `<BasePendingBanner>` de `/admin-dashboard/hardware`.
+- En la UI del CRUD: al crear un sensor nuevo, **mostrar el UUID retornado** con instrucción "copiar al firmware del ESP32" (ver `iot.md §10.4` del backend).
+- Agregar el cuarto estado `sin_lecturas` con su ícono/color distinto a `offline`.
+
+**Mientras el back no implemente:** mantener mocks visibles con el banner. La spec está cerrada, solo falta implementación del lado backend.
 
 ---
 

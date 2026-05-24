@@ -4,6 +4,12 @@ Lista priorizada de endpoints/funcionalidades que el frontend necesita y que el 
 
 > Este documento es lo que se le pasa al equipo de backend. Si un item se implementa, **mover a `01-mapeo-contrato.md`** y dejar acá una entrada cerrada con la fecha + commit donde se cubrió.
 
+## Estado (2026-05-23)
+
+El backend ratificó **6 items** en su sesión de planificación admin/sensores. Los items marcados ✅ ya tienen spec autoritativa en `api.md` / `auth.md` / `bbdd.md`. El frontend puede implementar contra esos endpoints (cuando el backend los implemente — ver `40db-backend/docs/PLAN.md` pasos 10-13).
+
+Resumen rápido al final del documento.
+
 ---
 
 ## Convenciones
@@ -17,102 +23,65 @@ Lista priorizada de endpoints/funcionalidades que el frontend necesita y que el 
 
 ---
 
-## 1. 🟡 Panel admin — listar sensores
+## 1. ✅ Panel admin — listar sensores — RESUELTO 2026-05-23
 
-**Para qué:** vista `/admin-dashboard/hardware` y `/admin-dashboard/` (Home admin) listan sensores con su estado de salud. Hoy todo es mock.
+**Spec autoritativa:** `40db-backend/docs/api.md §4.14`.
 
-**Propuesta:**
+`GET /api/v1/sensores?comuna_id=&estado_salud=&activo=&limit=&cursor=`. Listo en backend. Filtros agregados respecto a la propuesta original: `activo` (filtro sobre `sensor.activo`). El response trae además `comuna_nombre` (resuelto en backend con JOIN).
 
-```http
-GET /api/v1/sensores?comuna_id=&estado=&limit=20&cursor=
-Authorization: Bearer <jwt>
-```
+**Auth:** `municipalidad` (su comuna; ignora `comuna_id` query) o `admin` (global o filtrado).
 
-| Query | Tipo | Notas |
-|---|---|---|
-| `comuna_id` | int | opcional. Sin él, devuelve todos los sensores accesibles al rol. |
-| `estado` | string | opcional. `online` / `intermitente` / `offline` (definición de salud: ver §1.1). |
-| `limit`, `cursor` | — | paginación cursor como en `/reportes/mios`. |
+**Cierre del workaround del front:** se puede reemplazar el mock de `services/sensors.service.ts` por llamada real. Mantener banner "datos demo" hasta validar en producción con datos reales (paso 11 del PLAN del backend).
 
-**Auth:** `tipo='municipalidad'` para sensores de su comuna; `admin` global (cuando exista). Ver §6 (rol admin).
+### 1.1 ✅ Definición de "estado de salud" — RESUELTO con umbrales 10/20 min
 
-**Response 200:**
+**Spec autoritativa:** `40db-backend/docs/bbdd.md §5.5` (RPC `sensores_con_salud`, D10).
 
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "nombre": "Plaza Italia - Norte",
-      "comuna_id": 13,
-      "latitud": -33.4372,
-      "longitud": -70.6483,
-      "activo": true,
-      "estado_salud": "online",
-      "ultima_lectura_at": "2026-05-19T22:14:33Z",
-      "ultima_lectura_db": 62.3
-    }
-  ],
-  "next_cursor": null
-}
-```
+El backend fija los umbrales **más estrictos** que la propuesta original del front (porque el firmware publica cada 5s, así que 5 min sin lectura ya es señal fuerte):
 
-### 1.1 Definición de "estado de salud"
+- `online`: última lectura ≤ 10 min.
+- `intermitente`: entre 10 min y 20 min.
+- `offline`: > 20 min, **o** `sensor.activo = false`.
+- `sin_lecturas`: el sensor nunca publicó (recién provisionado).
 
-Hoy el front asume `online | intermitente | offline`. Propuesta de cómputo server-side:
-
-- `online`: lectura más reciente en últimos 5 min.
-- `intermitente`: última lectura entre 5 min y 1 h atrás.
-- `offline`: > 1 h sin lectura, o `activo=false`.
-
-Si el back implementa esto, el front cae el mock por completo.
-
-**Workaround:** `services/sensors.service.ts` mantiene mocks. La vista admin lleva banner "datos demo".
+El front debe soportar el cuarto estado `sin_lecturas` (que la propuesta original no contemplaba). Sugerencia UI: gris o ícono de "esperando primera lectura".
 
 ---
 
-## 2. 🟡 Panel admin — resumen de salud de sensores
+## 2. ✅ Panel admin — resumen de salud de sensores — RESUELTO 2026-05-23
 
-**Para qué:** KPIs del Home admin (`AdminHomeView.vue`): total / online / intermitente / offline.
+**Spec autoritativa:** `40db-backend/docs/api.md §4.16`.
 
-**Propuesta:**
-
-```http
-GET /api/v1/sensores/resumen?comuna_id=
-Authorization: Bearer <jwt>
-```
-
-**Response 200:**
+`GET /api/v1/sensores/resumen?comuna_id=`. El response trae un campo extra `sin_lecturas` (cuarto estado, ver §1.1). El front debe agregarlo a los KPIs del Home admin.
 
 ```json
 {
   "total": 12,
   "online": 8,
   "intermitente": 2,
-  "offline": 2,
-  "calculado_at": "2026-05-19T22:15:00Z"
+  "offline": 1,
+  "sin_lecturas": 1,
+  "calculado_at": "2026-05-23T02:38:00Z"
 }
 ```
 
-**Workaround:** mock estático en `kpisService.adminSummary()`. Banner "datos demo".
+**Cierre del workaround del front:** reemplazar `kpisService.adminSummary()` por llamada real. Mantener UI compatible con `sin_lecturas`.
 
 ---
 
-## 3. 🟡 Panel admin — CRUD de sensores ("hardware")
+## 3. ✅ Panel admin — CRUD de sensores ("hardware") — RESUELTO 2026-05-23
 
-**Para qué:** vista `/admin-dashboard/hardware` permite crear / editar / dar de baja sensores. Hoy en `devices.service.ts` con mocks.
+**Spec autoritativa:** `40db-backend/docs/api.md §4.17 (POST)`, `§4.18 (PATCH)`, `§4.19 (DELETE)`.
 
-**Propuesta:**
+Confirmaciones del backend respecto a la propuesta original:
 
-```http
-POST   /api/v1/sensores                  body: { nombre, comuna_id, latitud, longitud }
-PATCH  /api/v1/sensores/{id}             body: { nombre?, latitud?, longitud? }
-DELETE /api/v1/sensores/{id}             → marcado como activo=false (no DELETE físico)
-```
+- `POST /api/v1/sensores` con `{nombre, comuna_id, latitud, longitud}` → 201 con sensor completo incluido el UUID generado. Ese UUID **debe copiarse al firmware** del ESP32 que va a publicar a `40db/sensores/{id}/lectura` (ver `iot.md §10.4`).
+- `PATCH /api/v1/sensores/{id}` acepta `nombre`, `latitud`, `longitud`, `activo`. **No acepta `comuna_id`** — mover físicamente un sensor de comuna = darlo de baja y crear uno nuevo (decisión del backend, evita orfandad de lecturas históricas).
+- `DELETE /api/v1/sensores/{id}` es **soft-delete** (`activo=false`). Las lecturas históricas permanecen y siguen alimentando heatmap.
 
-**Auth:** rol admin global. Hoy `auth.md §8` indica que la inserción se hace por SQL editor con `service_role` — esto no escala, conviene endpoint cuando admin esté online.
+**Auth:** solo `admin` para las tres operaciones (`current_user_admin`).
 
-**Workaround:** vista oculta detrás de flag `VITE_ENABLE_ADMIN_DEMO`. CRUD sigue siendo mock.
+**Cierre del workaround del front:** reemplazar `devices.service.ts` por servicio real. Quitar flag `VITE_ENABLE_ADMIN_DEMO`. Para crear un sensor nuevo, el UI debe **mostrar el UUID retornado** al admin con instrucción "copiar al firmware del ESP32".
 
 ---
 
@@ -165,37 +134,45 @@ Authorization: opcional (lo dejaría público como `/heatmaps`)
 
 ---
 
-## 6. 🟡 Rol `admin` — semántica explícita en el back
+## 6. ✅ Rol `admin` — semántica explícita en el back — RESUELTO 2026-05-23
 
-**Para qué:** el front mantiene `admin` como UI-only (decisión F1) sobre tres áreas que **necesitan visibilidad cross-comuna**: hardware, usuarios, reportes históricos. El back hoy solo conoce `ciudadano` / `municipalidad`, ambas comuna-scoped.
+**Spec autoritativa:** `40db-backend/docs/auth.md` D9 + §6 (matriz extendida) + §8 (bootstrap + endpoint).
 
-**Propuesta (cuando se decida):**
+El backend ahora reconoce **tres roles**: `ciudadano`, `municipalidad`, `admin` (CHECK constraint en `usuario.tipo`). Confirmaciones:
 
-1. Extender `usuario.tipo` con `'admin'` y/o introducir tabla `rol`.
-2. Endpoint de promoción auditado:
+1. **Schema extendido** en `bbdd.md §3.3`: `CHECK (tipo IN ('ciudadano', 'municipalidad', 'admin'))`.
+2. **Endpoint de promoción** en `api.md §4.22`:
    ```http
-   PATCH /api/v1/usuarios/{id}/promover  body: { nuevo_tipo: "admin" | "municipalidad", comuna_id?: int }
+   PATCH /api/v1/usuarios/{id}/promover
+   body: { nuevo_tipo: "ciudadano" | "municipalidad" | "admin", comuna_id?: int }
    ```
-3. Bypass de la regla de comuna para endpoints de listado (`GET /reportes` sin scope de comuna, `GET /sensores` global, etc.).
+   Reglas: solo admin puede invocar, `comuna_id` obligatorio si `nuevo_tipo='municipalidad'`, no se puede degradar a sí mismo.
+3. **Bypass de comuna**: la dependency `current_user_municipal_o_admin` aplica filtro de comuna para municipalidad pero lo omite para admin. Aplicada en endpoints de sensores y usuarios.
+4. **Bootstrap del primer admin**: SQL manual una sola vez (`auth.md §8.1`). Después todo via endpoint.
 
-`auth.md §8 / §12` ya lo lista como roadmap. Este doc lo prioriza desde la perspectiva del front.
+**Mapeo front → back actualizado:**
 
-**Workaround:** flag `VITE_ENABLE_ADMIN_DEMO` para mostrar vistas admin con mocks. Cero acceso al back desde rol admin.
+| UI front | `usuario.tipo` |
+|---|---|
+| `vecino` | `ciudadano` |
+| `funcionario` | `municipalidad` |
+| `admin` | **`admin`** ← ahora real, ya no UI-only |
+
+**Cierre del workaround del front:** quitar flag `VITE_ENABLE_ADMIN_DEMO`. El guard del router consulta `usuario.tipo === 'admin'` real (no más selector mock). El store `auth.ts` ya tenía el campo, solo había que mapear el tercer valor. Decisión F1 del README **se revierte** ahora — `admin` consume backend real.
 
 ---
 
-## 7. 🟢 Usuarios — administrarlos desde el panel
+## 7. ✅ Usuarios — administrarlos desde el panel — RESUELTO 2026-05-23
 
-**Para qué:** vista `/admin-dashboard/usuarios`.
+**Spec autoritativa:** `40db-backend/docs/api.md §4.20 (GET listado)`, `§4.21 (PATCH activo)`, `§4.22 (PATCH promover)`.
 
-**Propuesta (mínimo):**
+Confirmaciones del backend:
 
-```http
-GET   /api/v1/usuarios?tipo=&comuna_id=&limit=&cursor=    (rol admin)
-PATCH /api/v1/usuarios/{id}/activo                         body: { activo: bool }   (rol admin)
-```
+- `GET /api/v1/usuarios?tipo=&comuna_id=&activo=&q=&limit=&cursor=`. Soporta búsqueda por nombre/email (ILIKE) vía `q` query — útil para el buscador del panel admin. **El `email` viene del JOIN** a `auth.users` (no se duplica en `public.usuario`).
+- `PATCH /api/v1/usuarios/{id}/activo` body `{activo: bool}`. No se puede desactivar a sí mismo.
+- `PATCH /api/v1/usuarios/{id}/promover` (ver §6) cubre cambio de rol + comuna.
 
-**Workaround:** vista oculta hasta que exista el back.
+**Cierre del workaround del front:** la vista `/admin-dashboard/usuarios` ahora puede salir del estado oculto. Implementar con paginación cursor (mismo encoding que `/reportes/mios`).
 
 ---
 
@@ -275,47 +252,52 @@ y permitir subirlo via `PATCH /usuarios/me/avatar` (multipart o URL signed con S
 
 ---
 
-## 12. 🟡 `reporte.comuna_id` — derivación ambigua
+## 12. ✅ `reporte.comuna_id` — derivación — RESUELTO 2026-05-23 con opción 3 + Nominatim
 
-**Para qué:** decidir y documentar **de qué fuente** se toma el `comuna_id` que se guarda en cada `reporte`. El front no lo envía en el body de `POST /reportes` (`api.md §4.5`); lo elige el server.
+**Spec autoritativa:** `40db-backend/docs/api.md §4.5` (body actualizado) + `§4.5.1` (contrato cliente-side).
 
-**Estado actual.** Detectado al testear el flow end-to-end con un usuario en Maipú (fuera del seed `Santiago / Providencia / Las Condes`):
+**Decisión.** El backend acepta `comuna_id` opcional en el body de `POST /reportes`. **El frontend es responsable de resolverlo** desde lat/lng usando Nominatim (que el front ya tiene integrado para reverse-geocode de la dirección — decisión F4 del README).
 
-- La RPC `crear_reporte_con_validacion(p_usuario_id, p_comuna_id, ...)` recibe `p_comuna_id` ya resuelto desde Python (`migrations/20260519000000_initial_schema.sql §9.3`).
-- El use case (no inspeccionado, pero implícito en `backend.md §5.1`) pasa **`usuario.comuna_id`** — la comuna del reportante, no la del lugar del incidente.
-- Consecuencia: un vecino de Santiago que reporta ruido en Maipú genera un `reporte` con `comuna_id = Santiago`. El panel del funcionario de Maipú **no lo verá** porque `GET /reportes/comuna/13` filtra por `reporte.comuna_id`.
+Esta es la **opción 3 con variante "front resuelve"** del análisis original. Se eligió porque la opción 2 (polígonos del INE) implicaba 2-4 horas de data work + riesgos geo (proyección UTM/WGS84, comunas no cubiertas, ambigüedad de solapamientos) sin valor agregado para el MVP. Si en el futuro Nominatim da problemas reales, se migra a opción 2 (queda en roadmap del backend).
 
-**Opciones:**
+**Pipeline del frontend** (ver detalle completo en `01-mapeo-contrato.md §3.5`):
 
-1. **Mantener `usuario.comuna_id`** (status quo). Pro: simple, no requiere mapeo geo→comuna. Con: el reporte queda mal-ruteado si el ciudadano denuncia fuera de su comuna.
-2. **Derivar de `(latitud, longitud)`** via una función `point_to_comuna(lat, lng)` con polígonos de comuna. Requiere cargar los polígonos (shapefile del INE o similar) y agregar PostGIS query. Pro: el reporte llega al municipio correcto. Con: trabajo extra de data.
-3. **Pedir comuna al usuario en el form** (campo explícito en `POST /reportes`). Pro: control del usuario; trivial de implementar en el back y el front. Con: extra step en UX, posible error humano.
+1. Usuario marca punto en map picker → `lat, lng`.
+2. Front llama Nominatim reverse-geocode (`https://nominatim.openstreetmap.org/reverse?...`).
+3. Extrae nombre de comuna (probar `address.county` → `address.city_district` → `address.suburb` → `address.town`).
+4. Matchea contra catálogo `GET /api/v1/comunas` (cacheado al boot).
+5. Si match → envía `comuna_id` resuelto. Si no → omite el campo (backend usa `usuario.comuna_id` como fallback).
 
-`backend.md §5.1` listaba esto como decisión abierta:
+**Comportamiento del backend:**
 
-> "Validar en el use case: `usuario.comuna_id` está seteado (si no, derivar de lat/lng o rechazar — decidir al implementar)."
+| Caso | Backend |
+|---|---|
+| `comuna_id` viene y existe | Se usa. |
+| `comuna_id` viene pero no existe | 422 `validation_error`. |
+| Omitido + `usuario.comuna_id` no null | Fallback al del usuario. |
+| Omitido + `usuario.comuna_id` null | 422 (debe completar onboarding o enviar `comuna_id`). |
 
-**Recomendación del front:** opción 2 (geo-derivada) es la correcta para producción. Como bridge, el back puede empezar con opción 1 + agregar warning en respuesta si `usuario.comuna_id ≠ comuna_polígono(lat, lng)`, y migrar a 2 cuando se cargen los polígonos.
-
-**Workaround actual del front:** ninguno — el front no controla esto. El issue se manifiesta solo cuando vecino y funcionario están en comunas distintas. Para testing E2E, ambos deben estar en la misma comuna seeded.
+**Cierre del workaround del front:** implementar el helper en `src/services/nominatim.service.ts` (cliente Nominatim) + `src/services/comunas.service.ts` (catálogo). Detalle de implementación en `01-mapeo-contrato.md §3.5`.
 
 ---
 
 ## Resumen rápido
 
-| Prio | Item | Bloquea vista |
-|---|---|---|
-| 🟡 | §1 Listar sensores | `/admin-dashboard/hardware` (real) |
-| 🟡 | §2 Resumen salud sensores | `/admin-dashboard/` (KPIs reales) |
-| 🟡 | §3 CRUD sensores | `/admin-dashboard/hardware` (real) |
-| 🟡 | §6 Rol admin server-side | Todo `/admin-dashboard/*` (real) |
-| 🟡 | §12 derivación de `reporte.comuna_id` | Reportes cross-comuna mal-ruteados |
-| 🟢 | §4 `categoria` en reportes | Análisis post-MVP |
-| 🟢 | §5 Alerta sostenida | KPI del heatmap |
-| 🟢 | §7 CRUD usuarios | `/admin-dashboard/usuarios` (real) |
-| 🟢 | §8 Reportes agregados admin | `/admin-dashboard/reportes` (real) |
-| 🟢 | §9 Conectividad sensores | `/admin-dashboard/historial` (real) |
-| 🟢 | §10 bbox por comuna | Inicializar viewport del heatmap |
-| 🟢 | §11 avatar usuario | Cosmético |
+| Estado | Prio orig | Item | Bloquea vista |
+|---|---|---|---|
+| ✅ | 🟡 | §1 Listar sensores | `/admin-dashboard/hardware` (real) |
+| ✅ | 🟡 | §2 Resumen salud sensores | `/admin-dashboard/` (KPIs reales) |
+| ✅ | 🟡 | §3 CRUD sensores | `/admin-dashboard/hardware` (real) |
+| ✅ | 🟡 | §6 Rol admin server-side | Todo `/admin-dashboard/*` (real) |
+| ✅ | 🟡 | §12 derivación de `reporte.comuna_id` | Reportes cross-comuna mal-ruteados |
+| ✅ | 🟢 | §7 CRUD usuarios | `/admin-dashboard/usuarios` (real) |
+| ⏳ | 🟢 | §4 `categoria` en reportes | Análisis post-MVP |
+| ⏳ | 🟢 | §5 Alerta sostenida | KPI del heatmap |
+| ⏳ | 🟢 | §8 Reportes agregados admin | `/admin-dashboard/reportes` (real) |
+| 🚫 | 🟢 | §9 Conectividad sensores | `/admin-dashboard/historial` — descartado en MVP del back (D10 computa estado on-demand, no persiste transiciones) |
+| ⏳ | 🟢 | §10 bbox por comuna | Inicializar viewport del heatmap |
+| ⏳ | 🟢 | §11 avatar usuario | Cosmético |
 
-No hay items 🔴: lo crítico de las vistas accesibles a vecino y funcionario está cubierto por el contrato actual del back.
+**6 items cerrados** en `40db-backend` el 2026-05-23 (sesión de planificación admin/sensores). Todos los items 🟡 (los que bloqueaban vistas admin reales) están resueltos. Lo que queda son 🟢 mejoras no-bloqueantes y §9 que el back descartó para MVP.
+
+**Roadmap del backend para los ⏳ pendientes:** `40db-backend/docs/backend.md §9`.

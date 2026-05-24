@@ -18,6 +18,7 @@ El frontend nació con **todo el data layer mockeado** (`src/services/*.service.
 | 2 | [`02-endpoints-faltantes-back.md`](./02-endpoints-faltantes-back.md) | Lista priorizada de endpoints que el front necesita y el back todavía no ofrece. Este es el documento que se le pasa al equipo de backend. |
 | 3 | [`03-plan-migracion.md`](./03-plan-migracion.md) | Plan de ramas/commits iterativos para ir adaptando el front sin romper la demo intermedia. |
 | 5 | [`05-deploy-spa-fallback.md`](./05-deploy-spa-fallback.md) | Por qué el SPA necesita `vercel.json` con rewrite catch-all (sin esto, F5 sobre rutas anidadas devuelve 404 antes de cargar el bundle). |
+| 4 | [`04-auth-supabase-redirects.md`](./04-auth-supabase-redirects.md) | Cómo configurar el dashboard de Supabase para que el correo de confirmación aterrice en `/auth/confirmado` (vista propia, no la raíz en blanco). |
 
 ## Decisiones tomadas (sesión 2026-05-20)
 
@@ -25,7 +26,7 @@ Estas decisiones aplican a toda la migración. Si cambian, **actualizar este doc
 
 | # | Tema | Decisión | Motivo |
 |---|---|---|---|
-| F1 | **Rol `admin`** | Se mantiene en el front como UI-only con datos mock y banner *"funcionalidad pendiente en backend"*. Las vistas `/admin-dashboard/*` siguen renderizando, pero **no consumen back** hasta que existan los endpoints. | El back no expone hoy panel admin / hardware / usuarios. Se anota en `02-endpoints-faltantes-back.md` para implementación próxima en el back. |
+| F1 | **Rol `admin`** | ~~UI-only con mocks~~ **Actualizado 2026-05-23:** el backend ratificó el rol `admin` (D9 + endpoints §4.14–§4.22 en `api.md`). Las vistas `/admin-dashboard/*` consumen backend real cuando el back implemente paso 11/12 de su `PLAN.md`. Mocks y banner se quitan en ese momento. | Backend ahora tiene `usuario.tipo IN ('ciudadano','municipalidad','admin')` + endpoints CRUD de sensores y usuarios. Detalle en `02-endpoints-faltantes-back.md §6`. |
 | F2 | **Auth** | Supabase Auth nativo (email + password) vía `@supabase/supabase-js` con `anon_key`. El JWT que devuelve la sesión se manda al backend en `Authorization: Bearer <token>`. **Se elimina** el botón "Continuar con Google" del `LoginView.vue`. | `auth.md §1 A2` declara Google OAuth como roadmap (no MVP); §12 lo deprecó explícitamente. Anon key + JWT verificado en backend vía JWKS o HS256. |
 | F3 | **Roles** | El front mapea **`ciudadano` → vecino** y **`municipalidad` → funcionario**. El rol se deriva de `GET /api/v1/usuarios/me` (`tipo`). `admin` no proviene del back (ver F1). | `auth.md §6` define solo dos `tipo` en `public.usuario`. No hay endpoint de promoción. |
 | F4 | **Ubicación del reporte** | Map picker (clic sobre Leaflet, ya instalado) para fijar `latitud` / `longitud`. Reverse-geocode opcional para mostrar dirección legible al usuario, pero **solo display**: lo que viaja al back es lat/lng. | `api.md §4.5` pide `latitud` y `longitud` como floats. No hay campo `direccion`/`zona`. |

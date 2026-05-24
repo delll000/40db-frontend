@@ -1,16 +1,21 @@
 import type { UsuarioMe, UsuarioTipo } from './api'
 
 /**
- * Roles del frontend (UI / routing). El backend solo conoce `ciudadano`
- * y `municipalidad` (`auth.md §2 / §6`). `admin` es UI-only y se mantiene
- * mientras el back no exponga endpoints administrativos (decisión F1, ver
- * `docs/integracion-backend/README.md`).
+ * Roles del frontend (UI / routing). Mapeo directo desde `usuario.tipo`
+ * del backend (`auth.md §2 / §6`, ratificado por D9 — `admin` ahora real).
  */
 export type Role = 'vecino' | 'funcionario' | 'admin'
 
-/** Mapeo back → front. `admin` nunca proviene del back. */
-export function tipoToRole(tipo: UsuarioTipo): Exclude<Role, 'admin'> {
-  return tipo === 'municipalidad' ? 'funcionario' : 'vecino'
+/** Mapeo back → front. Los tres roles vienen del backend. */
+export function tipoToRole(tipo: UsuarioTipo): Role {
+  switch (tipo) {
+    case 'admin':
+      return 'admin'
+    case 'municipalidad':
+      return 'funcionario'
+    case 'ciudadano':
+      return 'vecino'
+  }
 }
 
 /** Etiquetas humanas para mostrar en UI */
