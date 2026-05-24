@@ -17,6 +17,7 @@ El frontend nació con **todo el data layer mockeado** (`src/services/*.service.
 | 1 | [`01-mapeo-contrato.md`](./01-mapeo-contrato.md) | Tabla concepto-por-concepto: qué hay en el front vs qué hay en el back, y cómo se reconcilian. Incluye qué se deprecia del front. |
 | 2 | [`02-endpoints-faltantes-back.md`](./02-endpoints-faltantes-back.md) | Lista priorizada de endpoints que el front necesita y el back todavía no ofrece. Este es el documento que se le pasa al equipo de backend. |
 | 3 | [`03-plan-migracion.md`](./03-plan-migracion.md) | Plan de ramas/commits iterativos para ir adaptando el front sin romper la demo intermedia. |
+| 4 | [`04-auth-supabase-redirects.md`](./04-auth-supabase-redirects.md) | Cómo configurar el dashboard de Supabase para que el correo de confirmación aterrice en `/auth/confirmado` (vista propia, no la raíz en blanco). |
 
 ## Decisiones tomadas (sesión 2026-05-20)
 
