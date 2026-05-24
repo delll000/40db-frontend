@@ -178,7 +178,19 @@ Confirmaciones del backend:
 
 ## 8. 🟢 Reportes — exportes y agregaciones para admin
 
-**Para qué:** vista `/admin-dashboard/reportes` (generar PDF, CSV institucionales). Hoy el front tiene `jspdf` + `html2canvas` para hacerlo client-side, pero necesita un endpoint que devuelva datos cross-comuna o agregados temporales.
+> **Cerrado parcialmente — 2026-05-24, branch `feat/reportes-admin-archivos` del back.**
+> El back expone ahora el ciclo de **persistencia de archivos** generados client-side (PDF/CSV/imagen) sobre un bucket privado de Supabase Storage:
+>
+> - `POST   /api/v1/reportes-admin/archivos` (multipart) — sube el archivo.
+> - `GET    /api/v1/reportes-admin/archivos` — lista paginada (filtros `tipo`, `generado_por_id`).
+> - `GET    /api/v1/reportes-admin/archivos/{id}/descarga` — signed URL temporal.
+> - `DELETE /api/v1/reportes-admin/archivos/{id}` — borra blob + metadata.
+>
+> Todos requieren rol `admin`. Detalle: `api.md §4.23–4.26`.
+>
+> **Lo que sigue abierto:** el endpoint de **agregado cross-comuna** (`/reportes/agregado` propuesto abajo) para alimentar las plantillas antes de exportar. Por ahora el front arma los datos con lo que ya tiene (`/reportes/comuna/{id}`, `/sensores`, etc.) y delega la generación visual a `jspdf` + `html2canvas`.
+
+**Para qué (lo pendiente):** vista `/admin-dashboard/reportes` también necesita un endpoint que devuelva datos cross-comuna o agregados temporales para construir el cuerpo del reporte antes de exportar.
 
 **Propuesta:**
 
@@ -201,7 +213,7 @@ Authorization: Bearer <jwt> (rol admin)
 }
 ```
 
-**Workaround:** vista oculta. Si se exhibe, mostrar mock con banner.
+**Workaround:** mientras no exista el agregado, el front compone con endpoints existentes y muestra un banner "datos parciales".
 
 ---
 
