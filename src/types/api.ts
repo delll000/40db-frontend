@@ -134,6 +134,11 @@ export interface CrearReporteInput {
   descripcion: string
   latitud: number
   longitud: number
+  /**
+   * Resuelto en el cliente vía Nominatim (`api.md §4.5.1`). Si se omite, el
+   * backend usa `usuario.comuna_id` como fallback.
+   */
+  comuna_id?: number
   lectura_evidencia_id?: number
 }
 
