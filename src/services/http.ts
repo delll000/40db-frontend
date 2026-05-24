@@ -40,6 +40,11 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>
   /** Body JSON. Se serializa con JSON.stringify. */
   json?: unknown
+  /**
+   * Body multipart/form-data. Mutuamente excluyente con `json`: el browser
+   * setea su propio `Content-Type` con boundary, así que no agregamos uno.
+   */
+  formData?: FormData
   /** Headers extra. Sobrescriben los default. */
   headers?: Record<string, string>
   /** Para abortar la request (ej. limpiar polling al desmontar). */
@@ -105,6 +110,10 @@ async function request<T>(
   const correlationId = newCorrelationId()
   const authHeader = await resolveAuthHeader(options.skipAuth)
 
+  if (options.json !== undefined && options.formData !== undefined) {
+    throw new Error('http: usá `json` o `formData`, no ambos.')
+  }
+
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'X-Correlation-Id': correlationId,
@@ -113,14 +122,15 @@ async function request<T>(
     ...options.headers,
   }
 
+  const init: RequestInit = { method, headers, signal: options.signal }
+  if (method !== 'GET') {
+    if (options.json !== undefined) init.body = JSON.stringify(options.json)
+    else if (options.formData !== undefined) init.body = options.formData
+  }
+
   let response: Response
   try {
-    response = await fetch(url, {
-      method,
-      headers,
-      body: options.json !== undefined ? JSON.stringify(options.json) : undefined,
-      signal: options.signal,
-    })
+    response = await fetch(url, init)
   } catch (e) {
     throw new NetworkError(undefined, e)
   }
