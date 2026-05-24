@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useApiError } from '@/composables/useApiError'
 import { reportesService } from '@/services/reportes.service'
+import { catalogosService } from '@/services/catalogos.service'
+import { resolveComunaId } from '@/services/nominatim.service'
 import { useHeatmapData } from '@/composables/useHeatmapData'
 import { defaultHeatmapQuery } from '@/types/filters'
 import HeatmapMap from '@/components/mapa/HeatmapMap.vue'
@@ -162,11 +164,27 @@ async function submitReport() {
       lecturaIdFinal = undefined
     }
 
+    // Resolver comuna_id con Nominatim (api.md §4.5.1). Best-effort: si falla,
+    // el backend cae a usuario.comuna_id.
+    let comunaIdResuelto: number | undefined
+    try {
+      const catalogo = await catalogosService.getComunas()
+      const resolved = await resolveComunaId(
+        form.value.ubicacion.latitud,
+        form.value.ubicacion.longitud,
+        catalogo,
+      )
+      if (resolved !== null) comunaIdResuelto = resolved
+    } catch {
+      // Nominatim o el catálogo fallaron — seguir sin comuna_id.
+    }
+
     const created = await reportesService.crear({
       titulo: form.value.titulo.trim(),
       descripcion: form.value.descripcion.trim(),
       latitud: form.value.ubicacion.latitud,
       longitud: form.value.ubicacion.longitud,
+      ...(comunaIdResuelto !== undefined && { comuna_id: comunaIdResuelto }),
       lectura_evidencia_id: lecturaIdFinal,
     })
     // Prepend a la lista local como ReporteListItem.
@@ -179,12 +197,14 @@ async function submitReport() {
       },
       ...myReports.value,
     ]
-    toast.success(
-      'Reporte enviado',
-      created.lectura_evidencia
-        ? 'Tu reporte fue creado con evidencia acústica adjunta.'
-        : 'Tu reporte fue creado. Un funcionario lo gestionará pronto.',
-    )
+    // Nombre de la comuna donde quedó insertado (mejor visibilidad para el vecino).
+    const comunaNombre = await catalogosService
+      .getComunas()
+      .then((cats) => cats.find((cm) => cm.id === created.comuna_id)?.nombre ?? null)
+      .catch(() => null)
+    const evidenciaTxt = created.lectura_evidencia ? ' con evidencia acústica adjunta' : ''
+    const comunaTxt = comunaNombre ? ` en ${comunaNombre}` : ''
+    toast.success('Reporte enviado', `Tu reporte fue creado${comunaTxt}${evidenciaTxt}.`)
     reportOpen.value = false
   } catch (e) {
     showError(e, 'No se pudo enviar el reporte')
