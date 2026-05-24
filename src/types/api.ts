@@ -53,7 +53,7 @@ export interface TipoEstado {
 // Usuario (api.md §4.10 / §4.11)
 // ──────────────────────────────────────────────────────────
 
-export type UsuarioTipo = 'ciudadano' | 'municipalidad'
+export type UsuarioTipo = 'ciudadano' | 'municipalidad' | 'admin'
 
 export interface UsuarioMe {
   id: string
