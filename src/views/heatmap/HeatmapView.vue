@@ -4,6 +4,7 @@ import HeatmapMap from '@/components/mapa/HeatmapMap.vue'
 import HeatmapKpis from '@/components/mapa/HeatmapKpis.vue'
 import HeatmapLegend from '@/components/mapa/HeatmapLegend.vue'
 import HeatmapExport from '@/components/mapa/HeatmapExport.vue'
+import BaseBadge from '@/components/common/BaseBadge.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
@@ -20,7 +21,32 @@ import type { HeatmapBucketMinutes } from '@/types/api'
 const query = ref(defaultHeatmapQuery())
 const rangeHours = ref<HeatmapRangeHours>(24)
 
-const { points, kpis, loading, error, refresh } = useHeatmapData(query)
+const { points, kpis, fuente, loading, error, refresh } = useHeatmapData(query)
+
+/**
+ * Badge "origen del dato" — refleja `metadata.fuente` del backend.
+ * Sirve para evidenciar el componente big data: cuando dice "caché", está
+ * sirviendo desde la vista materializada (rollup 5 min); cuando dice
+ * "consulta en vivo", el back cayó al fallback RPC sobre la tabla cruda.
+ * Ver `40db-backend/docs/frontend-resumen-horario.md §5`.
+ */
+const fuenteBadge = computed(() => {
+  if (fuente.value === 'matview') {
+    return {
+      tone: 'success' as const,
+      icon: '⚡',
+      label: 'Servido desde caché (matview, refresh 5 min)',
+    }
+  }
+  if (fuente.value === 'rpc') {
+    return {
+      tone: 'warning' as const,
+      icon: '🔍',
+      label: 'Consulta en vivo (sin caché para este bucket/ventana)',
+    }
+  }
+  return null
+})
 
 function onBboxChange(bbox: string) {
   query.value = { ...query.value, bbox }
@@ -109,7 +135,19 @@ const bucketOptions = HEATMAP_BUCKETS.map((b) => ({ value: b.value, label: b.lab
     <!-- Mapa + leyenda + exportes -->
     <section class="hview__map-wrap">
       <div class="hview__map-bar">
-        <HeatmapLegend />
+        <div class="hview__map-bar-left">
+          <HeatmapLegend />
+          <BaseBadge
+            v-if="fuenteBadge"
+            :tone="fuenteBadge.tone"
+            size="sm"
+            :title="fuenteBadge.label"
+            class="hview__fuente"
+          >
+            <span aria-hidden="true">{{ fuenteBadge.icon }}</span>
+            {{ fuente === 'matview' ? 'Servido desde caché' : 'Consulta en vivo' }}
+          </BaseBadge>
+        </div>
         <HeatmapExport :map-element="mapElement" :points="points" :kpis="kpis" />
       </div>
       <HeatmapMap
@@ -227,5 +265,16 @@ const bucketOptions = HEATMAP_BUCKETS.map((b) => ({ value: b.value, label: b.lab
   gap: var(--space-3);
   justify-content: space-between;
   align-items: center;
+}
+
+.hview__map-bar-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.hview__fuente {
+  cursor: help;
 }
 </style>
