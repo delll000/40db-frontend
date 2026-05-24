@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import BaseButton from '@/components/common/BaseButton.vue'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
+import { reportesAdminArchivosService } from '@/services/reportesAdminArchivos.service'
 import type { HeatmapPoint, HeatmapKpis } from '@/types/kpi'
+import type { TipoArchivoAdmin } from '@/types/api'
 
 const props = defineProps<{
   /** Elemento DOM del mapa para exportar a PNG */
@@ -15,7 +18,17 @@ const props = defineProps<{
 }>()
 
 const toast = useToast()
+const auth = useAuthStore()
 const exporting = ref<'png' | 'csv' | 'pdf' | null>(null)
+
+// Solo los admins pueden subir al bucket privado. Para el resto la opción
+// no se muestra y el flujo es exclusivamente descarga local.
+const esAdmin = computed(() => auth.role === 'admin')
+
+// Opt-in: por defecto en true para que la acción explícita ("Exportar PDF")
+// también persista la copia en el panel. Si el admin está experimentando
+// puede destildar antes de exportar.
+const guardarEnPanel = ref(true)
 
 function nowStamp() {
   const d = new Date()
@@ -33,6 +46,19 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+// Sube el mismo blob al bucket admin. No bloquea el flujo de descarga: si
+// falla, el archivo ya está en el disco del usuario y mostramos un error
+// aparte para que el admin sepa que NO quedó copia en el panel.
+async function guardarEnBucket(blob: Blob, nombre: string, tipo: TipoArchivoAdmin) {
+  if (!esAdmin.value || !guardarEnPanel.value) return
+  try {
+    await reportesAdminArchivosService.subir({ blob, nombre, tipo })
+    toast.success('Guardado en panel admin', nombre)
+  } catch (e) {
+    toast.error('No se pudo guardar en panel admin', e instanceof Error ? e.message : undefined)
+  }
+}
+
 async function exportPng() {
   if (!props.mapElement) {
     toast.error('No se pudo exportar', 'Mapa no disponible.')
@@ -46,11 +72,12 @@ async function exportPng() {
       backgroundColor: '#ffffff',
       logging: false,
     })
-    canvas.toBlob((blob) => {
-      if (!blob) throw new Error('blob null')
-      downloadBlob(blob, `heatmap_${nowStamp()}.png`)
-      toast.success('Imagen exportada')
-    })
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve))
+    if (!blob) throw new Error('No se pudo serializar la imagen.')
+    const nombre = `heatmap_${nowStamp()}.png`
+    downloadBlob(blob, nombre)
+    toast.success('Imagen exportada')
+    await guardarEnBucket(blob, nombre, 'imagen')
   } catch (e) {
     toast.error('Error al exportar PNG', e instanceof Error ? e.message : undefined)
   } finally {
@@ -58,7 +85,7 @@ async function exportPng() {
   }
 }
 
-function exportCsv() {
+async function exportCsv() {
   exporting.value = 'csv'
   try {
     const header = 'lat,lng,db,zone\n'
@@ -66,8 +93,10 @@ function exportCsv() {
       .map((p) => `${p.lat},${p.lng},${p.db},"${p.zone.replace(/"/g, '""')}"`)
       .join('\n')
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8' })
-    downloadBlob(blob, `heatmap_${nowStamp()}.csv`)
+    const nombre = `heatmap_${nowStamp()}.csv`
+    downloadBlob(blob, nombre)
     toast.success('CSV exportado', `${props.points.length} puntos`)
+    await guardarEnBucket(blob, nombre, 'csv')
   } catch (e) {
     toast.error('Error al exportar CSV', e instanceof Error ? e.message : undefined)
   } finally {
@@ -126,8 +155,13 @@ async function exportPdf() {
       })
     }
 
-    doc.save(`heatmap_${nowStamp()}.pdf`)
+    // doc.output('blob') en lugar de doc.save() para tener el binario en
+    // memoria: lo bajamos manualmente y, si corresponde, lo subimos al bucket.
+    const blob = doc.output('blob')
+    const nombre = `heatmap_${nowStamp()}.pdf`
+    downloadBlob(blob, nombre)
     toast.success('PDF exportado')
+    await guardarEnBucket(blob, nombre, 'pdf')
   } catch (e) {
     toast.error('Error al exportar PDF', e instanceof Error ? e.message : undefined)
   } finally {
@@ -138,40 +172,69 @@ async function exportPdf() {
 
 <template>
   <div class="exp">
-    <BaseButton
-      variant="secondary"
-      size="sm"
-      :loading="exporting === 'png'"
-      :disabled="exporting !== null"
-      @click="exportPng"
-    >
-      ↓ PNG
-    </BaseButton>
-    <BaseButton
-      variant="secondary"
-      size="sm"
-      :loading="exporting === 'csv'"
-      :disabled="exporting !== null"
-      @click="exportCsv"
-    >
-      ↓ CSV
-    </BaseButton>
-    <BaseButton
-      variant="secondary"
-      size="sm"
-      :loading="exporting === 'pdf'"
-      :disabled="exporting !== null"
-      @click="exportPdf"
-    >
-      ↓ PDF
-    </BaseButton>
+    <div class="exp__buttons">
+      <BaseButton
+        variant="secondary"
+        size="sm"
+        :loading="exporting === 'png'"
+        :disabled="exporting !== null"
+        @click="exportPng"
+      >
+        ↓ PNG
+      </BaseButton>
+      <BaseButton
+        variant="secondary"
+        size="sm"
+        :loading="exporting === 'csv'"
+        :disabled="exporting !== null"
+        @click="exportCsv"
+      >
+        ↓ CSV
+      </BaseButton>
+      <BaseButton
+        variant="secondary"
+        size="sm"
+        :loading="exporting === 'pdf'"
+        :disabled="exporting !== null"
+        @click="exportPdf"
+      >
+        ↓ PDF
+      </BaseButton>
+    </div>
+
+    <label v-if="esAdmin" class="exp__flag">
+      <input
+        type="checkbox"
+        v-model="guardarEnPanel"
+        :disabled="exporting !== null"
+      />
+      <span>Guardar copia en el panel admin</span>
+    </label>
   </div>
 </template>
 
 <style scoped>
 .exp {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.exp__buttons {
+  display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+.exp__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.exp__flag input {
+  cursor: pointer;
 }
 </style>
