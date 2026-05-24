@@ -42,4 +42,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Vercel CLI (link local del proyecto: contiene projectId/orgId especificos de la maquina)
 .vercel

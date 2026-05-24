@@ -90,10 +90,21 @@ export const useAuthStore = defineStore('auth', () => {
     password: string
     nombre: string
   }): Promise<{ needsEmailConfirmation: boolean }> {
+    // `emailRedirectTo` define a donde aterriza el usuario tras clickear el
+    // enlace del correo de confirmacion. La URL debe estar habilitada en
+    // Authentication → URL Configuration → Redirect URLs del dashboard de
+    // Supabase (ver docs/integracion-backend/03-auth-supabase-redirects.md).
+    const emailRedirectTo =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/confirmado`
+        : undefined
     const { data, error } = await supabase.auth.signUp({
       email: params.email,
       password: params.password,
-      options: { data: { full_name: params.nombre } },
+      options: {
+        data: { full_name: params.nombre },
+        emailRedirectTo,
+      },
     })
     if (error) throw error
 

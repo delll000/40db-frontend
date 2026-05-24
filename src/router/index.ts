@@ -45,6 +45,13 @@ const routes: RouteRecordRaw[] = [
       title: 'Completa tu perfil',
     },
   },
+  {
+    path: '/auth/confirmado',
+    name: 'auth-confirmado',
+    component: () => import('@/views/auth/EmailConfirmedView.vue'),
+    // Sin guards: el link del correo puede aterrizar con o sin sesion activa.
+    meta: { layout: 'public', title: 'Correo confirmado' },
+  },
 
   {
     path: '/heatmap',
@@ -125,7 +132,15 @@ const routes: RouteRecordRaw[] = [
     },
   },
 
-  { path: '/:pathMatch(.*)*', redirect: '/home' },
+  {
+    // Catch-all 404. Mostramos una vista propia en lugar de redirigir
+    // silenciosamente a /home: un 404 oculto enmascara typos en router-links,
+    // deep-links rotos compartidos por URL, y rutas deprecadas.
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('@/views/NotFoundView.vue'),
+    meta: { layout: 'public', title: 'Página no encontrada' },
+  },
 ]
 
 const router = createRouter({
