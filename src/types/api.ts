@@ -211,12 +211,23 @@ export interface HeatmapFeature {
   properties: HeatmapFeatureProperties
 }
 
+/**
+ * Origen del heatmap (api.md §4.3 + frontend-resumen-horario.md §5).
+ * - `matview`: servido desde la vista materializada de la capa OLAP (refresh
+ *   cada 5 min). Es el caso típico — gráfico rápido sobre 100M lecturas.
+ * - `rpc`: el back cayó al fallback de consulta en vivo (ventana >7d, bucket
+ *   ∈ {1,15,60} u otros casos fuera del matview).
+ */
+export type HeatmapFuente = 'matview' | 'rpc'
+
 export interface HeatmapFeatureCollection {
   type: 'FeatureCollection'
   metadata: {
     bucket_minutes: number
     grid_size_deg: number
     total_cells: number
+    /** Aditivo: ausente en versiones viejas del back. Mostrar badge si está. */
+    fuente?: HeatmapFuente
   }
   features: HeatmapFeature[]
 }
