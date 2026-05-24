@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useApiError } from '@/composables/useApiError'
 import { reportesService } from '@/services/reportes.service'
+import { catalogosService } from '@/services/catalogos.service'
+import { resolveComunaId } from '@/services/nominatim.service'
 import { useHeatmapData } from '@/composables/useHeatmapData'
 import { defaultHeatmapQuery } from '@/types/filters'
 import HeatmapMap from '@/components/mapa/HeatmapMap.vue'
@@ -162,11 +164,31 @@ async function submitReport() {
       lecturaIdFinal = undefined
     }
 
+    // Resolver comuna_id con Nominatim (api.md §4.5.1). Best-effort: si falla,
+    // el backend cae a usuario.comuna_id.
+    let resolveResult: { id: number | null; nombreSugerido: string | null } = {
+      id: null,
+      nombreSugerido: null,
+    }
+    let catalogo: { id: number; nombre: string }[] = []
+    try {
+      const cs = await catalogosService.getComunas()
+      catalogo = cs
+      resolveResult = await resolveComunaId(
+        form.value.ubicacion.latitud,
+        form.value.ubicacion.longitud,
+        cs,
+      )
+    } catch {
+      // Nominatim o el catálogo fallaron — seguir sin comuna_id (warnings se omiten).
+    }
+
     const created = await reportesService.crear({
       titulo: form.value.titulo.trim(),
       descripcion: form.value.descripcion.trim(),
       latitud: form.value.ubicacion.latitud,
       longitud: form.value.ubicacion.longitud,
+      ...(resolveResult.id !== null && { comuna_id: resolveResult.id }),
       lectura_evidencia_id: lecturaIdFinal,
     })
     // Prepend a la lista local como ReporteListItem.
@@ -179,12 +201,32 @@ async function submitReport() {
       },
       ...myReports.value,
     ]
-    toast.success(
-      'Reporte enviado',
-      created.lectura_evidencia
-        ? 'Tu reporte fue creado con evidencia acústica adjunta.'
-        : 'Tu reporte fue creado. Un funcionario lo gestionará pronto.',
-    )
+    // Nombre real de la comuna donde quedó insertado (lo dice el back en created.comuna_id).
+    const comunaNombre = catalogo.find((c) => c.id === created.comuna_id)?.nombre ?? null
+    const evidenciaTxt = created.lectura_evidencia ? ' con evidencia acústica adjunta' : ''
+    const comunaTxt = comunaNombre ? ` en ${comunaNombre}` : ''
+    toast.success('Reporte enviado', `Tu reporte fue creado${comunaTxt}${evidenciaTxt}.`)
+
+    // UX: avisar si Nominatim sugirió una comuna que NO está en el catálogo
+    // (el reporte quedó asignado a la comuna del perfil por fallback del back).
+    if (resolveResult.id === null && resolveResult.nombreSugerido !== null) {
+      const perfilComuna = auth.profile.comuna_nombre ?? 'tu comuna del perfil'
+      toast.warning(
+        'Comuna no habilitada',
+        `Detectamos que la ubicación está en ${resolveResult.nombreSugerido}, pero esa comuna aún no está disponible en 40dB. El reporte quedó asignado a ${perfilComuna}.`,
+      )
+    } else if (
+      resolveResult.id !== null &&
+      created.comuna_id !== auth.profile.comuna_id
+    ) {
+      // UX: el reporte cayó en una comuna distinta de la del perfil. Informativo,
+      // no es un error — pero el usuario puede querer saberlo.
+      const perfilComuna = auth.profile.comuna_nombre ?? 'tu comuna registrada'
+      toast.info(
+        'Reporte fuera de tu comuna',
+        `Asignamos el reporte a ${comunaNombre ?? 'esa zona'} (distinta de ${perfilComuna}).`,
+      )
+    }
     reportOpen.value = false
   } catch (e) {
     showError(e, 'No se pudo enviar el reporte')

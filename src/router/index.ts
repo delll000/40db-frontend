@@ -16,21 +16,7 @@ declare module 'vue-router' {
     title?: string
     /** Si true, el guard NO redirige a /onboarding aunque falte (vista propia de onboarding). */
     allowIncompleteOnboarding?: boolean
-    /**
-     * Si true, la ruta solo es accesible cuando `VITE_ENABLE_ADMIN_DEMO=true`.
-     * Cubre vistas UI-only sobre datos mock mientras el backend no expone los
-     * endpoints administrativos (decisión F1, ver `docs/integracion-backend/`).
-     */
-    requiresAdminDemo?: boolean
   }
-}
-
-/**
- * Lee el flag de demo admin. La env var llega como string ('true' / 'false');
- * cualquier valor distinto de 'true' se considera deshabilitado.
- */
-function isAdminDemoEnabled(): boolean {
-  return import.meta.env.VITE_ENABLE_ADMIN_DEMO === 'true'
 }
 
 const routes: RouteRecordRaw[] = [
@@ -74,7 +60,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       layout: 'admin',
       requiresAuth: true,
-      requiresAdminDemo: true,
+      roles: ['admin', 'funcionario'],
       title: 'Mapa de Ruido',
     },
   },
@@ -85,7 +71,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       layout: 'admin',
       requiresAuth: true,
-      requiresAdminDemo: true,
+      roles: ['admin'],
       title: 'Panel administrador',
     },
     children: [
@@ -188,13 +174,7 @@ router.beforeEach((to) => {
     return HOME_BY_ROLE[auth.role]
   }
 
-  // 5. Admin demo: rutas UI-only sin contrato de back. Si el flag está apagado,
-  //    cualquier usuario (incluso autenticado) es redirigido a su home.
-  if (to.meta.requiresAdminDemo && !isAdminDemoEnabled()) {
-    return auth.role ? HOME_BY_ROLE[auth.role] : '/home'
-  }
-
-  // 6. roles: si está autenticado pero el rol no califica, mandarlo a SU home
+  // 5. roles: si está autenticado pero el rol no califica, mandarlo a SU home
   //    (no a /auth, eso causaría loop).
   if (required.length > 0) {
     if (!auth.role || !required.includes(auth.role)) {
