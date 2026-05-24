@@ -4,7 +4,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useApiError } from '@/composables/useApiError'
 import { reportesService } from '@/services/reportes.service'
+import { catalogosService } from '@/services/catalogos.service'
 import { isApiError } from '@/services/errors'
+import type { Comuna } from '@/types/api'
 import KpiCard from '@/components/common/KpiCard.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
@@ -48,6 +50,15 @@ const estadoOptions = [
 ] as const
 
 const comunaId = computed(() => auth.profile?.comuna_id ?? null)
+
+// Catálogo de comunas para resolver `comuna_id` → nombre en el modal detalle.
+// Cacheado en catalogosService (una sola request por sesión).
+const comunas = ref<Comuna[]>([])
+catalogosService.getComunas().then((cs) => (comunas.value = cs)).catch(() => {})
+
+function comunaNombre(id: number): string {
+  return comunas.value.find((c) => c.id === id)?.nombre ?? `Comuna ${id}`
+}
 
 async function loadReportes(cursor?: string) {
   if (!comunaId.value) {
@@ -306,6 +317,10 @@ function formatDate(iso: string): string {
           <span v-if="detalle.usuario">
             por <strong>{{ detalle.usuario.nombre }}</strong>
           </span>
+        </p>
+
+        <p class="dlg__meta">
+          Comuna: <strong>{{ comunaNombre(detalle.comuna_id) }}</strong>
         </p>
 
         <p class="dlg__meta dlg__meta--mono">
