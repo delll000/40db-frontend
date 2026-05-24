@@ -3,6 +3,7 @@ import { heatmapService } from '@/services/heatmap.service'
 import { isApiHttpError } from '@/services/errors'
 import { usePolling } from '@/composables/usePolling'
 import { deriveKpis, featureCollectionToPoints } from '@/utils/heatmap-features'
+import type { HeatmapFuente } from '@/types/api'
 import type { HeatmapQuery } from '@/types/filters'
 import type { HeatmapKpis, HeatmapPoint } from '@/types/kpi'
 
@@ -21,6 +22,12 @@ import type { HeatmapKpis, HeatmapPoint } from '@/types/kpi'
 export function useHeatmapData(query: Ref<HeatmapQuery>, intervalMs = 60_000) {
   const points = ref<HeatmapPoint[]>([])
   const kpis = ref<HeatmapKpis | null>(null)
+  /**
+   * Origen del último response (matview vs RPC en vivo). `null` mientras no
+   * haya respuesta o si el back es de una versión que no expone el campo.
+   * Ver `frontend-resumen-horario.md §5`.
+   */
+  const fuente = ref<HeatmapFuente | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -35,6 +42,7 @@ export function useHeatmapData(query: Ref<HeatmapQuery>, intervalMs = 60_000) {
       const fc = await heatmapService.get(query.value)
       points.value = featureCollectionToPoints(fc)
       kpis.value = deriveKpis(fc)
+      fuente.value = fc.metadata.fuente ?? null
     } catch (e) {
       error.value = isApiHttpError(e)
         ? e.message
@@ -55,5 +63,5 @@ export function useHeatmapData(query: Ref<HeatmapQuery>, intervalMs = 60_000) {
   // Cualquier cambio del query → refresh sin esperar al siguiente tick.
   watch(query, refresh, { deep: true })
 
-  return { points, kpis, loading, error, refresh }
+  return { points, kpis, fuente, loading, error, refresh }
 }
