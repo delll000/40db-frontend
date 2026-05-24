@@ -45,6 +45,13 @@ const routes: RouteRecordRaw[] = [
       title: 'Completa tu perfil',
     },
   },
+  {
+    path: '/auth/confirmado',
+    name: 'auth-confirmado',
+    component: () => import('@/views/auth/EmailConfirmedView.vue'),
+    // Sin guards: el link del correo puede aterrizar con o sin sesion activa.
+    meta: { layout: 'public', title: 'Correo confirmado' },
+  },
 
   {
     path: '/heatmap',
