@@ -234,6 +234,37 @@ export interface HeatmapQuery {
 }
 
 // ──────────────────────────────────────────────────────────
+// Reportes admin — archivos (api.md §4.23 – §4.26)
+// ──────────────────────────────────────────────────────────
+
+export type TipoArchivoAdmin = 'pdf' | 'csv' | 'imagen'
+
+export interface ReporteArchivoAdmin {
+  id: string
+  nombre: string
+  tipo: TipoArchivoAdmin
+  mime_type: string
+  tamano_bytes: number
+  generado_por_id: string
+  generado_por_nombre: string | null
+  rango_desde: string | null
+  rango_hasta: string | null
+  created_at: string
+}
+
+export interface ListarArchivosAdminQuery {
+  tipo?: TipoArchivoAdmin
+  generado_por_id?: string
+  limit?: number
+  cursor?: string
+}
+
+export interface ArchivoAdminSignedUrl {
+  url: string
+  expires_in_seconds: number
+}
+
+// ──────────────────────────────────────────────────────────
 // Health (api.md §4.1 / §4.2)
 // ──────────────────────────────────────────────────────────
 
