@@ -12,6 +12,7 @@ import BaseEmpty from '@/components/common/BaseEmpty.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
+import ReporteMapPicker from '@/components/reportes/ReporteMapPicker.vue'
 import {
   ESTADO_SALUD_LABEL,
   type Sensor,
@@ -99,6 +100,17 @@ const createForm = reactive<{
 }>({ nombre: '', comuna_id: '', latitud: '', longitud: '' })
 const createErrors = ref<Record<string, string>>({})
 const createdSensor = ref<Sensor | null>(null)
+// Source of truth del map picker. El watch sincroniza lat/lng al form (los
+// inputs quedan editables como fallback / ajuste fino).
+const createUbicacion = ref<{ latitud: number; longitud: number } | null>(null)
+
+watch(createUbicacion, (next) => {
+  if (!next) return
+  createForm.latitud = String(next.latitud)
+  createForm.longitud = String(next.longitud)
+  delete createErrors.value.latitud
+  delete createErrors.value.longitud
+})
 
 function openCreate() {
   createForm.nombre = ''
@@ -107,6 +119,7 @@ function openCreate() {
   createForm.longitud = ''
   createErrors.value = {}
   createdSensor.value = null
+  createUbicacion.value = null
   createOpen.value = true
 }
 
@@ -357,7 +370,7 @@ function formatLastReport(iso: string | null): string {
     </div>
 
     <!-- Modal: nuevo sensor -->
-    <BaseModal v-model="createOpen" :title="createdSensor ? 'Sensor provisionado' : 'Nuevo sensor'" size="md">
+    <BaseModal v-model="createOpen" :title="createdSensor ? 'Sensor provisionado' : 'Nuevo sensor'" size="lg">
       <div v-if="createdSensor" class="prov">
         <p>
           El sensor <strong>{{ createdSensor.nombre }}</strong> fue creado.
@@ -381,6 +394,14 @@ function formatLastReport(iso: string | null): string {
           required
           :error="createErrors.nombre"
         />
+
+        <div class="form__field">
+          <label class="form__label">
+            Ubicación física del sensor <span class="form__req" aria-hidden="true">*</span>
+          </label>
+          <ReporteMapPicker v-model="createUbicacion" min-height="320px" />
+        </div>
+
         <BaseSelect
           v-model="createForm.comuna_id"
           :options="comunaOptionsRequired"
@@ -575,6 +596,20 @@ function formatLastReport(iso: string | null): string {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.form__label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+}
+.form__req {
+  color: var(--color-danger);
+  margin-left: 2px;
 }
 .form__grid {
   display: grid;
