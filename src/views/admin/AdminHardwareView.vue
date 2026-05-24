@@ -4,6 +4,7 @@ import { useToast } from '@/composables/useToast'
 import { useApiError } from '@/composables/useApiError'
 import { sensorsService } from '@/services/sensors.service'
 import { catalogosService } from '@/services/catalogos.service'
+import { resolveComunaId, type ResolveComunaResult } from '@/services/nominatim.service'
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
@@ -12,6 +13,7 @@ import BaseEmpty from '@/components/common/BaseEmpty.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
+import ReporteMapPicker from '@/components/reportes/ReporteMapPicker.vue'
 import {
   ESTADO_SALUD_LABEL,
   type Sensor,
@@ -99,6 +101,49 @@ const createForm = reactive<{
 }>({ nombre: '', comuna_id: '', latitud: '', longitud: '' })
 const createErrors = ref<Record<string, string>>({})
 const createdSensor = ref<Sensor | null>(null)
+// Source of truth del map picker. El watch sincroniza lat/lng al form (los
+// inputs quedan editables como fallback / ajuste fino) y dispara la resolución
+// de comuna_id contra Nominatim (mismo flujo que el reporte del vecino,
+// api.md §4.5.1).
+const createUbicacion = ref<{ latitud: number; longitud: number } | null>(null)
+const nominatimResolving = ref(false)
+const nominatimResult = ref<ResolveComunaResult | null>(null)
+// Token para descartar respuestas viejas de Nominatim si el usuario re-clickea
+// el mapa antes de que termine la request anterior.
+let resolveToken = 0
+
+watch(createUbicacion, async (next) => {
+  if (!next) {
+    nominatimResult.value = null
+    nominatimResolving.value = false
+    return
+  }
+  createForm.latitud = String(next.latitud)
+  createForm.longitud = String(next.longitud)
+  delete createErrors.value.latitud
+  delete createErrors.value.longitud
+
+  if (comunas.value.length === 0) {
+    // Sin catálogo cargado no podemos matchear. Dejamos al admin elegir manual.
+    nominatimResult.value = null
+    return
+  }
+
+  const myToken = ++resolveToken
+  nominatimResolving.value = true
+  nominatimResult.value = null
+  try {
+    const result = await resolveComunaId(next.latitud, next.longitud, comunas.value)
+    if (myToken !== resolveToken) return
+    nominatimResult.value = result
+    if (result.id !== null) {
+      createForm.comuna_id = String(result.id)
+      delete createErrors.value.comuna_id
+    }
+  } finally {
+    if (myToken === resolveToken) nominatimResolving.value = false
+  }
+})
 
 function openCreate() {
   createForm.nombre = ''
@@ -107,6 +152,9 @@ function openCreate() {
   createForm.longitud = ''
   createErrors.value = {}
   createdSensor.value = null
+  createUbicacion.value = null
+  nominatimResult.value = null
+  nominatimResolving.value = false
   createOpen.value = true
 }
 
@@ -357,7 +405,7 @@ function formatLastReport(iso: string | null): string {
     </div>
 
     <!-- Modal: nuevo sensor -->
-    <BaseModal v-model="createOpen" :title="createdSensor ? 'Sensor provisionado' : 'Nuevo sensor'" size="md">
+    <BaseModal v-model="createOpen" :title="createdSensor ? 'Sensor provisionado' : 'Nuevo sensor'" size="lg">
       <div v-if="createdSensor" class="prov">
         <p>
           El sensor <strong>{{ createdSensor.nombre }}</strong> fue creado.
@@ -381,13 +429,46 @@ function formatLastReport(iso: string | null): string {
           required
           :error="createErrors.nombre"
         />
-        <BaseSelect
-          v-model="createForm.comuna_id"
-          :options="comunaOptionsRequired"
-          label="Comuna"
-          placeholder="Selecciona una comuna"
-          :error="createErrors.comuna_id"
-        />
+
+        <div class="form__field">
+          <label class="form__label">
+            Ubicación física del sensor <span class="form__req" aria-hidden="true">*</span>
+          </label>
+          <ReporteMapPicker v-model="createUbicacion" min-height="320px" />
+        </div>
+
+        <div class="form__field">
+          <BaseSelect
+            v-model="createForm.comuna_id"
+            :options="comunaOptionsRequired"
+            label="Comuna"
+            placeholder="Selecciona una comuna"
+            :error="createErrors.comuna_id"
+          />
+          <p v-if="nominatimResolving" class="form__hint">
+            Detectando comuna desde la ubicación…
+          </p>
+          <p
+            v-else-if="nominatimResult?.id !== undefined && nominatimResult?.id !== null"
+            class="form__hint form__hint--success"
+          >
+            Comuna detectada automáticamente: <strong>{{ nominatimResult.nombreSugerido }}</strong>.
+          </p>
+          <p
+            v-else-if="nominatimResult && nominatimResult.nombreSugerido"
+            class="form__hint form__hint--warning"
+          >
+            Detectamos la ubicación en <strong>{{ nominatimResult.nombreSugerido }}</strong>,
+            pero esa comuna aún no está habilitada en 40dB. Selecciona manualmente la comuna
+            municipal que corresponda.
+          </p>
+          <p
+            v-else-if="nominatimResult && !nominatimResult.nombreSugerido"
+            class="form__hint"
+          >
+            No pudimos detectar la comuna automáticamente. Selecciónala desde el listado.
+          </p>
+        </div>
         <div class="form__grid">
           <BaseInput
             v-model="createForm.latitud"
@@ -576,6 +657,20 @@ function formatLastReport(iso: string | null): string {
   flex-direction: column;
   gap: var(--space-4);
 }
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.form__label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+}
+.form__req {
+  color: var(--color-danger);
+  margin-left: 2px;
+}
 .form__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -591,6 +686,12 @@ function formatLastReport(iso: string | null): string {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+.form__hint--success {
+  color: var(--color-success, #1f7a4d);
+}
+.form__hint--warning {
+  color: var(--color-warning, #a76512);
 }
 .form__hint-aside {
   display: block;
