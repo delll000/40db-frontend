@@ -8,17 +8,22 @@ import logoMonoWhite from '@/assets/brand/logo-mono-white.svg'
 import logoColor from '@/assets/brand/logo.color.svg'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
 
+const SUPPORT_EMAIL = 'contacto@40db.cl'
+
 type Mode = 'login' | 'signup'
 const mode = ref<Mode>('login')
 const loading = ref(false)
 const emailConfirmationPending = ref(false)
 const showPassword = ref(false)
+const showBlockedModal = ref(false)
+const blockedEmail = ref('')
 
 const form = ref({ email: '', password: '', nombre: '' })
 const errors = ref<{ email?: string; password?: string; nombre?: string }>({})
@@ -57,6 +62,14 @@ async function onSubmit() {
         email: form.value.email,
         password: form.value.password,
       })
+      // Si Supabase autenticó pero el backend rechazó el perfil con 401
+      // (usuario.activo=false), `loadProfile` ya hizo signOut y dejó la
+      // sesión limpia. Ver auth.md §7 / errores.md §10 (unauthorized).
+      if (!auth.isAuthenticated) {
+        blockedEmail.value = form.value.email
+        showBlockedModal.value = true
+        return
+      }
       await redirectAfterAuth()
       return
     }
@@ -82,6 +95,14 @@ async function onSubmit() {
     loading.value = false
   }
 }
+
+const mailtoLink = computed(() => {
+  const subject = encodeURIComponent('Cuenta bloqueada en 40dB')
+  const body = encodeURIComponent(
+    `Hola,\n\nMi cuenta (${blockedEmail.value}) aparece como bloqueada al intentar iniciar sesión.\nAgradezco revisar el caso.\n\nGracias.`,
+  )
+  return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`
+})
 
 async function redirectAfterAuth() {
   if (auth.needsOnboarding) {
@@ -237,6 +258,32 @@ async function redirectAfterAuth() {
         </p>
       </div>
     </section>
+
+    <BaseModal
+      v-model="showBlockedModal"
+      title="Cuenta bloqueada"
+      size="sm"
+      :close-on-overlay="false"
+    >
+      <div class="blocked">
+        <div class="blocked__icon" aria-hidden="true">⚠</div>
+        <p class="blocked__lead">
+          Tu cuenta está desactivada y no puede iniciar sesión.
+        </p>
+        <p class="blocked__body">
+          Si crees que es un error, escríbenos a
+          <a :href="mailtoLink" class="blocked__link">{{ SUPPORT_EMAIL }}</a>
+          indicando el correo
+          <strong>{{ blockedEmail }}</strong> para revisar tu caso.
+        </p>
+      </div>
+      <template #footer="{ close }">
+        <BaseButton variant="ghost" @click="close">Cerrar</BaseButton>
+        <BaseButton :href="mailtoLink" variant="primary">
+          Enviar correo
+        </BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -524,5 +571,43 @@ async function redirectAfterAuth() {
 .auth__terms a {
   color: var(--color-primary);
   text-decoration: underline;
+}
+
+/* ── Modal de cuenta bloqueada ─────────────────────────────────── */
+.blocked {
+  text-align: center;
+}
+
+.blocked__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(220, 53, 69, 0.12);
+  color: #b00020;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  margin: 0 auto var(--space-4);
+}
+
+.blocked__lead {
+  margin: 0 0 var(--space-3);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
+.blocked__body {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.blocked__link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  font-weight: var(--font-semibold);
 }
 </style>
