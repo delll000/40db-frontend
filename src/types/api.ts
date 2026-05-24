@@ -78,6 +78,39 @@ export interface UsuarioRef {
 }
 
 // ──────────────────────────────────────────────────────────
+// Usuarios — panel admin (api.md §4.20 / §4.21 / §4.22)
+// ──────────────────────────────────────────────────────────
+
+export interface UsuarioAdminListItem {
+  id: string
+  nombre: string
+  /** JOIN a auth.users.email — no vive en public.usuario. */
+  email: string
+  telefono: string | null
+  tipo: UsuarioTipo
+  comuna_id: number | null
+  comuna_nombre: string | null
+  activo: boolean
+  created_at: string
+}
+
+export interface ListarUsuariosQuery {
+  tipo?: UsuarioTipo
+  comuna_id?: number
+  activo?: boolean
+  /** Búsqueda ILIKE sobre nombre/email. */
+  q?: string
+  limit?: number
+  cursor?: string
+}
+
+export interface PromoverInput {
+  nuevo_tipo: UsuarioTipo
+  /** Obligatorio si `nuevo_tipo='municipalidad'`. Ignorado si `ciudadano`. */
+  comuna_id?: number
+}
+
+// ──────────────────────────────────────────────────────────
 // Reporte (api.md §4.5 / §4.6 / §4.7 / §4.8 / §4.9)
 // ──────────────────────────────────────────────────────────
 
