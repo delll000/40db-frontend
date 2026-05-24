@@ -132,7 +132,15 @@ const routes: RouteRecordRaw[] = [
     },
   },
 
-  { path: '/:pathMatch(.*)*', redirect: '/home' },
+  {
+    // Catch-all 404. Mostramos una vista propia en lugar de redirigir
+    // silenciosamente a /home: un 404 oculto enmascara typos en router-links,
+    // deep-links rotos compartidos por URL, y rutas deprecadas.
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('@/views/NotFoundView.vue'),
+    meta: { layout: 'public', title: 'Página no encontrada' },
+  },
 ]
 
 const router = createRouter({
