@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useApiError } from '@/composables/useApiError'
 import { kpisService } from '@/services/kpis.service'
 import { sensorsService } from '@/services/sensors.service'
 import KpiCard from '@/components/common/KpiCard.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
-import BasePendingBanner from '@/components/common/BasePendingBanner.vue'
-import type { Sensor, SensorStatusSummary } from '@/types/sensor'
+import {
+  ESTADO_SALUD_LABEL,
+  type Sensor,
+  type SensorEstadoSalud,
+  type SensorResumen,
+} from '@/types/sensor'
 
 const auth = useAuthStore()
-const summary = ref<SensorStatusSummary | null>(null)
+const { showError } = useApiError()
+const summary = ref<SensorResumen | null>(null)
 const sensors = ref<Sensor[]>([])
 const loading = ref(true)
 
@@ -64,18 +70,29 @@ const shortcuts: ShortcutCard[] = [
 onMounted(async () => {
   loading.value = true
   try {
-    const [s, sl] = await Promise.all([kpisService.adminSummary(), sensorsService.list()])
+    const [s, sl] = await Promise.all([
+      kpisService.adminSummary(),
+      sensorsService.list({ limit: 8 }),
+    ])
     summary.value = s
-    sensors.value = sl
+    sensors.value = sl.data
+  } catch (e) {
+    showError(e, 'No se pudo cargar el resumen del panel')
   } finally {
     loading.value = false
   }
 })
 
-function statusTone(s: Sensor['status']) {
+function statusTone(s: SensorEstadoSalud) {
   if (s === 'online') return 'success'
   if (s === 'intermitente') return 'warning'
+  if (s === 'sin_lecturas') return 'neutral'
   return 'danger'
+}
+
+function formatLastReport(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('es-CL')
 }
 </script>
 
@@ -85,14 +102,9 @@ function statusTone(s: Sensor['status']) {
       <div>
         <p class="ah__eyebrow">Panel administrador</p>
         <h1 class="ah__title">Hola, {{ auth.profile?.nombre }}</h1>
-        <p class="ah__sub">Resumen general del sistema 40dB en Maipú.</p>
+        <p class="ah__sub">Resumen general del sistema 40dB.</p>
       </div>
     </header>
-
-    <BasePendingBanner
-      message="Los KPIs de salud de sensores y la tabla inferior usan datos demo. El backend MVP aún no expone los endpoints de catálogo y resumen."
-      doc-ref="02-endpoints-faltantes-back.md §1, §2"
-    />
 
     <!-- KPIs salud sensores -->
     <section class="ah__kpis">
@@ -123,6 +135,14 @@ function statusTone(s: Sensor['status']) {
         tone="danger"
         :loading="loading"
       />
+      <KpiCard
+        label="Sin lecturas"
+        :value="summary?.sin_lecturas ?? '—'"
+        sub="Recién provisionados"
+        icon="◌"
+        tone="neutral"
+        :loading="loading"
+      />
     </section>
 
     <!-- Tarjetas de acceso rápido -->
@@ -151,29 +171,32 @@ function statusTone(s: Sensor['status']) {
       <h2 class="ah__sec-title">Estado de sensores</h2>
       <BaseCard padding="none">
         <div v-if="loading" class="ah__loading"><BaseSpinner /></div>
+        <div v-else-if="sensors.length === 0" class="ah__empty">
+          Aún no hay sensores registrados. Provisiona uno desde Hardware.
+        </div>
         <table v-else class="ah__table">
           <thead>
             <tr>
-              <th>ID técnico</th>
-              <th>Zona</th>
+              <th>Nombre</th>
+              <th>Comuna</th>
               <th>Estado</th>
-              <th>Batería</th>
-              <th>Señal</th>
-              <th>Último reporte</th>
+              <th>Última lectura</th>
+              <th>Nivel</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="s in sensors.slice(0, 8)" :key="s.id">
-              <td><code>{{ s.technicalId }}</code></td>
-              <td>{{ s.zone }}</td>
+            <tr v-for="s in sensors" :key="s.id">
+              <td>{{ s.nombre }}</td>
+              <td>{{ s.comuna_nombre }}</td>
               <td>
-                <BaseBadge :tone="statusTone(s.status)" dot>
-                  {{ s.status }}
+                <BaseBadge :tone="statusTone(s.estado_salud)" dot>
+                  {{ ESTADO_SALUD_LABEL[s.estado_salud] }}
                 </BaseBadge>
               </td>
-              <td>{{ s.battery }}%</td>
-              <td>{{ s.signal }}%</td>
-              <td>{{ new Date(s.lastReportAt).toLocaleString('es-CL') }}</td>
+              <td>{{ formatLastReport(s.ultima_lectura_at) }}</td>
+              <td>
+                {{ s.ultima_lectura_db !== null ? `${s.ultima_lectura_db.toFixed(1)} dB(A)` : '—' }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -209,15 +232,20 @@ function statusTone(s: Sensor['status']) {
 
 .ah__kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-4);
 }
-@media (max-width: 1080px) {
+@media (max-width: 1200px) {
+  .ah__kpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 720px) {
   .ah__kpis {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-@media (max-width: 540px) {
+@media (max-width: 480px) {
   .ah__kpis {
     grid-template-columns: 1fr;
   }
@@ -296,17 +324,11 @@ function statusTone(s: Sensor['status']) {
   background: var(--color-bg-alt);
 }
 
-.ah__table code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--text-xs);
-  background: var(--color-bg-alt);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-}
-
-.ah__loading {
+.ah__loading,
+.ah__empty {
   display: flex;
   justify-content: center;
   padding: var(--space-12);
+  color: var(--color-text-muted);
 }
 </style>
