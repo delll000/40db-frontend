@@ -1,7 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import isotipo from '@/assets/brand/isotipo.svg'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
+import { useAuthStore } from '@/stores/auth'
+import { HOME_BY_ROLE } from '@/types/auth'
+
+const auth = useAuthStore()
+
+const ctaTo = computed(() => {
+  if (auth.isAuthenticated && auth.role) return HOME_BY_ROLE[auth.role]
+  return '/auth'
+})
+
+const ctaLabel = computed(() => (auth.isAuthenticated ? 'Ir a mi panel' : 'Iniciar sesión'))
 
 interface Step {
   icon: string
@@ -45,7 +57,7 @@ const steps: Step[] = [
             denuncia llegue con datos verificables al municipio.
           </p>
           <div class="hero__cta">
-            <BaseButton to="/auth" size="lg">Iniciar sesión</BaseButton>
+            <BaseButton :to="ctaTo" size="lg">{{ ctaLabel }}</BaseButton>
             <BaseButton href="#como-funciona" variant="ghost" size="lg">
               Cómo funciona
             </BaseButton>
@@ -167,11 +179,19 @@ const steps: Step[] = [
   flex-wrap: wrap;
   gap: var(--space-3);
 }
+/*
+ * Sobre el gradiente verde del hero, el ghost debe ser blanco. Calzamos la
+ * especificidad del hover de BaseButton (`:not(.is-disabled):not(.is-loading)`)
+ * para que el fondo translúcido gane y el texto no quede blanco-sobre-blanco.
+ */
 .hero__cta :deep(.btn--ghost) {
   color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
 }
-.hero__cta :deep(.btn--ghost:hover) {
-  background: rgba(255, 255, 255, 0.1);
+.hero__cta :deep(.btn--ghost:hover:not(.is-disabled):not(.is-loading)) {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.7);
 }
 
 .hero__art {
