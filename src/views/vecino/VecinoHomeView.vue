@@ -12,6 +12,7 @@ import HeatmapMap from '@/components/mapa/HeatmapMap.vue'
 import HeatmapLegend from '@/components/mapa/HeatmapLegend.vue'
 import ReporteMapPicker from '@/components/reportes/ReporteMapPicker.vue'
 import EvidenciaSensorCard from '@/components/reportes/EvidenciaSensorCard.vue'
+import ReporteComentariosTimeline from '@/components/reportes/ReporteComentariosTimeline.vue'
 import KpiCard from '@/components/common/KpiCard.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
@@ -21,6 +22,7 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
 import {
   ESTADO_TONE,
+  type Reporte,
   type ReporteListItem,
   type ReporteLecturaEvidencia,
 } from '@/types/report'
@@ -241,6 +243,28 @@ function formatDate(iso: string): string {
     timeStyle: 'short',
   })
 }
+
+// ──────────────────────────────────────────────────────────
+// Modal detalle "Mis reportes" (con timeline de externos)
+// ──────────────────────────────────────────────────────────
+
+const detalleOpen = ref(false)
+const detalleLoading = ref(false)
+const detalle = ref<Reporte | null>(null)
+
+async function verDetalle(item: ReporteListItem) {
+  detalleOpen.value = true
+  detalle.value = null
+  detalleLoading.value = true
+  try {
+    detalle.value = await reportesService.byId(item.id)
+  } catch (e) {
+    showError(e, 'No se pudo cargar el detalle del reporte')
+    detalleOpen.value = false
+  } finally {
+    detalleLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -315,15 +339,24 @@ function formatDate(iso: string): string {
         Aún no has enviado reportes. Cuando hagas el primero aparecerá aquí.
       </p>
       <div v-else class="vh__reports">
-        <BaseCard v-for="r in myReports" :key="r.id" padding="md">
-          <header class="vh__r-head">
-            <strong class="vh__r-titulo">{{ r.titulo }}</strong>
-            <BaseBadge :tone="ESTADO_TONE[r.estado_actual]" dot size="sm">
-              {{ r.estado_actual }}
-            </BaseBadge>
-          </header>
-          <p class="vh__r-date">{{ formatDate(r.created_at) }}</p>
-        </BaseCard>
+        <button
+          v-for="r in myReports"
+          :key="r.id"
+          type="button"
+          class="vh__r-card"
+          @click="verDetalle(r)"
+        >
+          <BaseCard padding="md">
+            <header class="vh__r-head">
+              <strong class="vh__r-titulo">{{ r.titulo }}</strong>
+              <BaseBadge :tone="ESTADO_TONE[r.estado_actual]" dot size="sm">
+                {{ r.estado_actual }}
+              </BaseBadge>
+            </header>
+            <p class="vh__r-date">{{ formatDate(r.created_at) }}</p>
+            <p class="vh__r-cta">Ver actualizaciones →</p>
+          </BaseCard>
+        </button>
       </div>
       <div v-if="nextCursor" class="vh__more">
         <BaseButton
@@ -399,6 +432,35 @@ function formatDate(iso: string): string {
       <template #footer="{ close }">
         <BaseButton variant="ghost" :disabled="submitting" @click="close">Cancelar</BaseButton>
         <BaseButton :loading="submitting" @click="submitReport">Enviar reporte</BaseButton>
+      </template>
+    </BaseModal>
+
+    <!-- Modal Detalle del reporte (con actualizaciones del municipio) -->
+    <BaseModal v-model="detalleOpen" title="Detalle del reporte" size="lg">
+      <div v-if="detalleLoading" class="vh__center"><BaseSpinner /></div>
+      <div v-else-if="detalle" class="vdlg">
+        <div class="vdlg__head">
+          <h3 class="vdlg__titulo">{{ detalle.titulo }}</h3>
+          <BaseBadge :tone="ESTADO_TONE[detalle.estado_actual]" dot>
+            {{ detalle.estado_actual }}
+          </BaseBadge>
+        </div>
+        <p class="vdlg__meta">
+          Reportado el <strong>{{ formatDate(detalle.created_at) }}</strong>
+        </p>
+        <p class="vdlg__descripcion">{{ detalle.descripcion }}</p>
+
+        <section class="vdlg__sec">
+          <h4 class="vdlg__sec-title">Actualizaciones del municipio</h4>
+          <ReporteComentariosTimeline
+            :comentarios="detalle.comentarios ?? []"
+            solo-externos
+          />
+        </section>
+      </div>
+
+      <template #footer="{ close }">
+        <BaseButton variant="ghost" @click="close">Cerrar</BaseButton>
       </template>
     </BaseModal>
   </div>
@@ -490,6 +552,25 @@ function formatDate(iso: string): string {
   gap: var(--space-3);
 }
 
+.vh__r-card {
+  all: unset;
+  display: block;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.vh__r-card:hover,
+.vh__r-card:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.vh__r-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .vh__r-head {
   display: flex;
   justify-content: space-between;
@@ -506,6 +587,58 @@ function formatDate(iso: string): string {
 .vh__r-date {
   margin: 0;
   font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.vh__r-cta {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-primary);
+  font-weight: var(--font-semibold);
+}
+
+/* Modal detalle vecino */
+.vdlg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.vdlg__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.vdlg__titulo {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.vdlg__meta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.vdlg__descripcion {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+.vdlg__sec {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.vdlg__sec-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--color-text-muted);
 }
 

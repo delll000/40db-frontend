@@ -6,7 +6,7 @@ import { useApiError } from '@/composables/useApiError'
 import { reportesService } from '@/services/reportes.service'
 import { catalogosService } from '@/services/catalogos.service'
 import { isApiError } from '@/services/errors'
-import type { Comuna } from '@/types/api'
+import type { Comuna, ReporteComentario } from '@/types/api'
 import KpiCard from '@/components/common/KpiCard.vue'
 import BaseCard from '@/components/common/BaseCard.vue'
 import BaseBadge from '@/components/common/BaseBadge.vue'
@@ -16,6 +16,8 @@ import BaseSelect from '@/components/common/BaseSelect.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
 import BaseEmpty from '@/components/common/BaseEmpty.vue'
+import ReporteComentariosTimeline from '@/components/reportes/ReporteComentariosTimeline.vue'
+import AgregarComentarioModal from '@/components/reportes/AgregarComentarioModal.vue'
 import {
   ESTADOS_TERMINALES,
   ESTADO_TONE,
@@ -111,6 +113,9 @@ const comment = ref('')
 const commentError = ref('')
 const saving = ref(false)
 
+// Modal para agregar comentario interno/externo (api.md §4.28).
+const comentarioModalOpen = ref(false)
+
 async function openReporte(item: ReporteListItem) {
   modalOpen.value = true
   detalle.value = null
@@ -126,6 +131,14 @@ async function openReporte(item: ReporteListItem) {
   } finally {
     detalleLoading.value = false
   }
+}
+
+function onComentarioCreado(nuevo: ReporteComentario) {
+  if (!detalle.value) return
+  // El back devuelve el comentario insertado al final del array. Mantenemos
+  // ese orden (created_at ASC) para que el item nuevo aparezca abajo.
+  const actuales = detalle.value.comentarios ?? []
+  detalle.value = { ...detalle.value, comentarios: [...actuales, nuevo] }
 }
 
 const transicionesPosibles = computed<ReporteEstadoNombre[]>(() => {
@@ -360,6 +373,21 @@ function formatDate(iso: string): string {
           </ul>
         </section>
 
+        <!-- Comentarios (internos + externos) -->
+        <section class="dlg__cmts">
+          <header class="dlg__cmts-head">
+            <h4>Comentarios</h4>
+            <BaseButton
+              variant="secondary"
+              size="sm"
+              @click="comentarioModalOpen = true"
+            >
+              ＋ Agregar comentario
+            </BaseButton>
+          </header>
+          <ReporteComentariosTimeline :comentarios="detalle.comentarios ?? []" />
+        </section>
+
         <!-- Cambiar estado -->
         <section v-if="!isTerminal" class="dlg__change">
           <h4>Cambiar estado</h4>
@@ -415,6 +443,15 @@ function formatDate(iso: string): string {
         <BaseButton variant="ghost" @click="close">Cerrar</BaseButton>
       </template>
     </BaseModal>
+
+    <!-- Modal: agregar comentario (interno / externo) -->
+    <AgregarComentarioModal
+      v-if="detalle"
+      v-model="comentarioModalOpen"
+      :reporte-id="detalle.id"
+      :comuna-id="detalle.comuna_id"
+      @created="onComentarioCreado"
+    />
   </div>
 </template>
 
@@ -612,6 +649,28 @@ function formatDate(iso: string): string {
   margin: var(--space-1) 0 0;
   color: var(--color-text-muted);
   font-style: italic;
+}
+
+.dlg__cmts {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.dlg__cmts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.dlg__cmts-head h4 {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
 }
 
 .dlg__change {
