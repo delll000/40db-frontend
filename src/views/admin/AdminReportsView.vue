@@ -26,7 +26,6 @@ const filterTipo = ref<TipoArchivoAdmin | ''>('')
 const tipoOptions = [
   { value: '', label: 'Todos los tipos' },
   { value: 'pdf', label: 'PDF' },
-  { value: 'csv', label: 'CSV' },
   { value: 'imagen', label: 'Imagen' },
 ] as const
 
