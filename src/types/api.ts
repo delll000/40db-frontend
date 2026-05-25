@@ -159,7 +159,39 @@ export interface Reporte {
   estado_actual: ReporteEstadoNombre
   lectura_evidencia: ReporteLecturaEvidencia | null
   historial?: ReporteHistorialEntry[]
+  /**
+   * Comentarios filtrados por rol (api.md §4.8). Aditivo: el back puede
+   * omitirlo en versiones viejas — tratar como [] cuando esté ausente.
+   */
+  comentarios?: ReporteComentario[]
   created_at: string
+}
+
+// ──────────────────────────────────────────────────────────
+// Comentarios sobre reportes (api.md §4.28 / §4.29)
+// ──────────────────────────────────────────────────────────
+
+export type ComentarioVisibilidad = 'interno' | 'externo'
+
+export interface ReporteComentario {
+  id: number
+  visibilidad: ComentarioVisibilidad
+  cuerpo: string
+  autor: UsuarioRef
+  /** Funcionario al que se delegó (solo para internos con delegación). */
+  delegado_a: UsuarioRef | null
+  /** ISO 8601 UTC. Solo presente si hay delegación. */
+  delegado_at: string | null
+  created_at: string
+}
+
+export interface CrearComentarioInput {
+  visibilidad: ComentarioVisibilidad
+  cuerpo: string
+  /** uuid del funcionario delegado. Va junto con `delegado_at` o ninguno. */
+  delegado_a_id?: string
+  /** ISO 8601 UTC. Va junto con `delegado_a_id` o ninguno. */
+  delegado_at?: string
 }
 
 export interface CrearReporteInput {
