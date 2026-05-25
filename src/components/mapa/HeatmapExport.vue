@@ -19,7 +19,7 @@ const props = defineProps<{
 
 const toast = useToast()
 const auth = useAuthStore()
-const exporting = ref<'png' | 'csv' | 'pdf' | null>(null)
+const exporting = ref<'png' | 'pdf' | null>(null)
 
 // Solo los admins pueden subir al bucket privado. Para el resto la opción
 // no se muestra y el flujo es exclusivamente descarga local.
@@ -80,25 +80,6 @@ async function exportPng() {
     await guardarEnBucket(blob, nombre, 'imagen')
   } catch (e) {
     toast.error('Error al exportar PNG', e instanceof Error ? e.message : undefined)
-  } finally {
-    exporting.value = null
-  }
-}
-
-async function exportCsv() {
-  exporting.value = 'csv'
-  try {
-    const header = 'lat,lng,db,zone\n'
-    const rows = props.points
-      .map((p) => `${p.lat},${p.lng},${p.db},"${p.zone.replace(/"/g, '""')}"`)
-      .join('\n')
-    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8' })
-    const nombre = `heatmap_${nowStamp()}.csv`
-    downloadBlob(blob, nombre)
-    toast.success('CSV exportado', `${props.points.length} puntos`)
-    await guardarEnBucket(blob, nombre, 'csv')
-  } catch (e) {
-    toast.error('Error al exportar CSV', e instanceof Error ? e.message : undefined)
   } finally {
     exporting.value = null
   }
@@ -181,15 +162,6 @@ async function exportPdf() {
         @click="exportPng"
       >
         ↓ PNG
-      </BaseButton>
-      <BaseButton
-        variant="secondary"
-        size="sm"
-        :loading="exporting === 'csv'"
-        :disabled="exporting !== null"
-        @click="exportCsv"
-      >
-        ↓ CSV
       </BaseButton>
       <BaseButton
         variant="secondary"
