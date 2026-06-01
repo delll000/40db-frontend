@@ -355,7 +355,7 @@ async function redirectAfterAuth() {
 }
 
 .auth__hero-logo {
-  width: 56px;
+  width: 80px;
   height: auto;
   margin-bottom: var(--space-8);
   opacity: 0.95;
@@ -441,7 +441,7 @@ async function redirectAfterAuth() {
 }
 
 .auth__brand-logo {
-  height: 40px;
+  height: 56px;
   width: auto;
 }
 

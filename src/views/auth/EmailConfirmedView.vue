@@ -89,7 +89,7 @@ const ctaLabel = computed(() =>
 }
 
 .confirmed__logo {
-  height: 40px;
+  height: 56px;
   width: auto;
   margin: 0 auto var(--space-6);
 }

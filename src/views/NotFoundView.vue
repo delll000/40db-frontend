@@ -79,7 +79,7 @@ const home = computed(() => {
 }
 
 .nf__logo {
-  height: 40px;
+  height: 56px;
   width: auto;
   margin: 0 auto var(--space-6);
 }

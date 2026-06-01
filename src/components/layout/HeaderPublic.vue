@@ -64,7 +64,7 @@ async function logout() {
   text-decoration: none;
 }
 .hp__logo {
-  height: 36px;
+  height: 64px;
   width: auto;
 }
 .hp__nav {

@@ -75,7 +75,7 @@ const collapsed = ref(false)
 }
 
 .sb__logo {
-  height: 32px;
+  height: 44px;
   width: auto;
 }
 

@@ -142,7 +142,7 @@ async function onSubmit() {
 
 .ob__logo {
   display: block;
-  height: 40px;
+  height: 56px;
   margin: 0 auto var(--space-4);
 }
 
