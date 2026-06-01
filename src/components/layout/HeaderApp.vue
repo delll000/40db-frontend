@@ -50,7 +50,7 @@ function initials(name?: string) {
         <p class="ha__role">{{ auth.role ? ROLE_LABELS[auth.role] : '' }}</p>
       </div>
       <div class="ha__avatar" aria-hidden="true">{{ initials(auth.profile?.nombre) }}</div>
-      <BaseButton variant="ghost" size="sm" @click="logout">Cerrar sesión</BaseButton>
+      <BaseButton variant="ghost" @click="logout">Cerrar sesión</BaseButton>
     </div>
   </header>
 </template>

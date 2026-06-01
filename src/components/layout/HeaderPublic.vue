@@ -30,10 +30,10 @@ async function logout() {
       </router-link>
 
       <nav class="hp__nav" aria-label="Navegación principal">
-        <BaseButton :to="ctaTo" variant="primary" size="sm">
+        <BaseButton :to="ctaTo" variant="primary">
           {{ ctaLabel }}
         </BaseButton>
-        <BaseButton v-if="auth.isAuthenticated" variant="ghost" size="sm" @click="logout">
+        <BaseButton v-if="auth.isAuthenticated" variant="ghost" @click="logout">
           Cerrar sesión
         </BaseButton>
       </nav>
