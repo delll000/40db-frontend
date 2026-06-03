@@ -37,7 +37,7 @@ function normalize(s: string): string {
   return s
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .trim()
 }
 
@@ -82,12 +82,19 @@ export async function resolveComunaId(
 
     const data = (await res.json()) as NominatimResponse
     const addr = data.address ?? {}
-    // En Chile, Nominatim devuelve la comuna principalmente en `suburb`. El
-    // `county` suele ser "Provincia de ..." (un nivel administrativo más alto).
-    // El orden refleja prioridad observada empíricamente con OSM.
-    const candidates = [addr.suburb, addr.city_district, addr.town, addr.county].filter(
-      (s): s is string => Boolean(s),
-    )
+    // En Chile, Nominatim devuelve la comuna principalmente en `suburb`.
+    // Priorizamos suburb, city_district y town (comunas conurbadas y periféricas),
+    // luego city/municipality/village (comunas mapeadas como ciudades independientes)
+    // y finalmente county como último recurso (Provincia de...).
+    const candidates = [
+      addr.suburb,
+      addr.city_district,
+      addr.town,
+      addr.city,
+      addr.municipality,
+      addr.village,
+      addr.county,
+    ].filter((s): s is string => Boolean(s))
 
     let nombreSugerido: string | null = null
     for (const candidate of candidates) {
