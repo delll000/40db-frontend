@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type Tone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+type Tone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral' | 'info'
 
 withDefaults(
   defineProps<{
@@ -60,6 +60,9 @@ withDefaults(
 }
 .kpi--neutral {
   border-left-color: var(--color-border);
+}
+.kpi--info {
+  border-left-color: var(--color-info);
 }
 
 .kpi__head {

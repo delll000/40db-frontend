@@ -22,6 +22,7 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSpinner from '@/components/common/BaseSpinner.vue'
 import {
   ESTADO_TONE,
+  ESTADO_LABEL,
   type Reporte,
   type ReporteListItem,
   type ReporteLecturaEvidencia,
@@ -350,7 +351,7 @@ async function verDetalle(item: ReporteListItem) {
             <header class="vh__r-head">
               <strong class="vh__r-titulo">{{ r.titulo }}</strong>
               <BaseBadge :tone="ESTADO_TONE[r.estado_actual]" dot size="sm">
-                {{ r.estado_actual }}
+                {{ ESTADO_LABEL[r.estado_actual] }}
               </BaseBadge>
             </header>
             <p class="vh__r-date">{{ formatDate(r.created_at) }}</p>
@@ -442,7 +443,7 @@ async function verDetalle(item: ReporteListItem) {
         <div class="vdlg__head">
           <h3 class="vdlg__titulo">{{ detalle.titulo }}</h3>
           <BaseBadge :tone="ESTADO_TONE[detalle.estado_actual]" dot>
-            {{ detalle.estado_actual }}
+            {{ ESTADO_LABEL[detalle.estado_actual] }}
           </BaseBadge>
         </div>
         <p class="vdlg__meta">

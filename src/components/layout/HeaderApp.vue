@@ -77,7 +77,7 @@ function initials(name?: string) {
   gap: var(--space-4);
 }
 .ha__logo {
-  height: 48px;
+  height: 62px;
   width: auto;
   display: block;
 }
