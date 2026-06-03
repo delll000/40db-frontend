@@ -77,7 +77,7 @@ async function onSubmit() {
 <template>
   <div class="ob">
     <div class="ob__card">
-      <img :src="logoColor" alt="40dB" class="ob__logo" />
+      <img :src="logoColor" alt="40dB Logo" class="ob__logo" />
       <h1 class="ob__title">Completa tu perfil</h1>
       <p class="ob__sub">
         Necesitamos saber tu comuna para mostrarte el ruido de tu zona y enrutar tus
@@ -86,32 +86,41 @@ async function onSubmit() {
 
       <div v-if="loadingComunas" class="ob__loading">
         <BaseSpinner size="md" />
-        Cargando comunas…
+        <span>Cargando comunas…</span>
       </div>
 
       <form v-else class="ob__form" @submit.prevent="onSubmit">
-        <BaseInput
-          v-model="form.telefono"
-          label="Teléfono"
-          type="tel"
-          inputmode="tel"
-          placeholder="+56912345678"
-          autocomplete="tel"
-          hint="Formato internacional E.164, comenzando con +56."
-          required
-          :error="errors.telefono"
-        />
-        <BaseSelect
-          :model-value="form.comunaId"
-          :options="comunaOptions"
-          label="Comuna"
-          placeholder="Selecciona tu comuna…"
-          required
-          :error="errors.comunaId"
-          @update:model-value="(v) => (form.comunaId = String(v))"
-        />
-        <BaseButton type="submit" :loading="submitting" size="lg" block>
+        <div class="ob__fields">
+          <BaseInput
+            v-model="form.telefono"
+            label="Teléfono de contacto"
+            type="tel"
+            inputmode="tel"
+            placeholder="+56912345678"
+            autocomplete="tel"
+            hint="Usa el formato internacional (ej: +56912345678)."
+            required
+            :error="errors.telefono"
+          />
+          <BaseSelect
+            :model-value="form.comunaId"
+            :options="comunaOptions"
+            label="Tu Comuna"
+            placeholder="Selecciona tu comuna…"
+            required
+            :error="errors.comunaId"
+            @update:model-value="(v) => (form.comunaId = String(v))"
+          />
+        </div>
+        
+        <BaseButton type="submit" :loading="submitting" size="lg" class="ob__btn">
           Guardar y continuar
+          <template #iconRight>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </template>
         </BaseButton>
       </form>
     </div>
@@ -124,37 +133,53 @@ async function onSubmit() {
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 80px);
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-12) var(--space-4);
   background:
-    radial-gradient(circle at top, rgba(0, 77, 64, 0.06), transparent 60%),
+    radial-gradient(circle at 15% 15%, rgba(0, 77, 64, 0.06), transparent 50%),
+    radial-gradient(circle at 85% 85%, rgba(255, 171, 145, 0.1), transparent 50%),
     var(--color-bg-alt);
 }
 
 .ob__card {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-10) var(--space-8);
+  border-radius: 24px;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.01),
+    0 20px 40px -4px rgba(0, 0, 0, 0.04),
+    0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
+  padding: var(--space-12) var(--space-8);
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
 }
 
 .ob__logo {
   display: block;
-  height: 56px;
-  margin: 0 auto var(--space-4);
+  height: 96px;
+  width: auto;
+  margin: 0 auto var(--space-8);
 }
 
 .ob__title {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
   text-align: center;
+  letter-spacing: -0.02em;
 }
 
 .ob__sub {
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-8);
   color: var(--color-text-muted);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
   text-align: center;
+  max-width: 40ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .ob__loading {
@@ -170,6 +195,24 @@ async function onSubmit() {
 .ob__form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-8);
+}
+
+.ob__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ob__btn {
+  min-width: 220px;
+  align-self: center;
+  box-shadow: 0 4px 12px rgba(0, 77, 64, 0.15);
+  transition: all 0.2s ease;
+}
+
+.ob__btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 77, 64, 0.25);
 }
 </style>

@@ -37,12 +37,12 @@ const ctaLabel = computed(() =>
 <template>
   <div class="confirmed">
     <div class="confirmed__card">
-      <img :src="logoColor" alt="40dB" class="confirmed__logo" />
+      <img :src="logoColor" alt="40dB Logo" class="confirmed__logo" />
 
       <div class="confirmed__check" aria-hidden="true">
         <svg viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="26" cy="26" r="24" />
-          <path d="M14 27 L23 36 L39 18" />
+          <circle cx="26" cy="26" r="24" class="check-circle" />
+          <path d="M16 27 L23 34 L36 19" class="check-path" />
         </svg>
       </div>
 
@@ -52,9 +52,17 @@ const ctaLabel = computed(() =>
         ruido de tu comuna.
       </p>
 
-      <BaseButton :to="home" size="lg" block>
-        {{ ctaLabel }}
-      </BaseButton>
+      <div class="confirmed__actions">
+        <BaseButton :to="home" size="lg" class="confirmed__btn">
+          {{ ctaLabel }}
+          <template #iconRight>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </template>
+        </BaseButton>
+      </div>
 
       <p v-if="!auth.isAuthenticated" class="confirmed__hint">
         Si el botón no avanza, inicia sesión manualmente con el correo y contraseña
@@ -70,35 +78,42 @@ const ctaLabel = computed(() =>
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 80px);
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-12) var(--space-4);
   background:
-    radial-gradient(circle at 20% 10%, rgba(0, 77, 64, 0.08), transparent 55%),
-    radial-gradient(circle at 80% 90%, rgba(255, 171, 145, 0.12), transparent 60%),
+    radial-gradient(circle at 15% 15%, rgba(0, 77, 64, 0.06), transparent 50%),
+    radial-gradient(circle at 85% 85%, rgba(255, 171, 145, 0.1), transparent 50%),
     var(--color-bg-alt);
 }
 
 .confirmed__card {
   width: 100%;
-  max-width: 440px;
-  padding: var(--space-10) var(--space-8);
+  max-width: 480px;
+  padding: var(--space-12) var(--space-8);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  border-radius: 24px;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.01),
+    0 20px 40px -4px rgba(0, 0, 0, 0.04),
+    0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .confirmed__logo {
-  height: 56px;
+  height: 96px;
   width: auto;
-  margin: 0 auto var(--space-6);
+  margin-bottom: var(--space-8);
+  display: block;
 }
 
 .confirmed__check {
-  width: 84px;
-  height: 84px;
-  margin: 0 auto var(--space-6);
-  animation: pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  width: 80px;
+  height: 80px;
+  margin-bottom: var(--space-6);
+  filter: drop-shadow(0 8px 16px rgba(27, 94, 32, 0.12));
 }
 
 .confirmed__check svg {
@@ -106,24 +121,21 @@ const ctaLabel = computed(() =>
   height: 100%;
   fill: none;
   stroke: var(--color-success);
-  stroke-width: 3;
+  stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.confirmed__check svg circle {
-  fill: rgba(27, 94, 32, 0.08);
+.confirmed__check svg .check-circle {
+  fill: rgba(27, 94, 32, 0.06);
+  stroke: rgba(27, 94, 32, 0.15);
+  stroke-width: 2;
 }
 
-.confirmed__check svg path {
+.confirmed__check svg .check-path {
   stroke-dasharray: 60;
   stroke-dashoffset: 60;
-  animation: draw 480ms 200ms ease-out forwards;
-}
-
-@keyframes pop {
-  from { transform: scale(0.6); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  animation: draw 500ms 200ms cubic-bezier(0.19, 1, 0.22, 1) forwards;
 }
 
 @keyframes draw {
@@ -133,18 +145,42 @@ const ctaLabel = computed(() =>
 .confirmed__title {
   margin: 0 0 var(--space-3);
   font-size: var(--text-2xl);
-  color: var(--color-text);
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
 }
 
 .confirmed__sub {
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-8);
   color: var(--color-text-muted);
-  line-height: var(--leading-normal);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  max-width: 38ch;
+}
+
+.confirmed__actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-4);
+}
+
+.confirmed__btn {
+  min-width: 220px;
+  box-shadow: 0 4px 12px rgba(0, 77, 64, 0.15);
+  transition: all 0.2s ease;
+}
+
+.confirmed__btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 77, 64, 0.25);
 }
 
 .confirmed__hint {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-sm);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
+  max-width: 34ch;
+  line-height: var(--leading-normal);
 }
 </style>
