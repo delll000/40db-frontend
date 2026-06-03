@@ -70,12 +70,12 @@ const collapsed = ref(false)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 var(--space-4);
+  min-height: 64px;
 }
 
 .sb__logo {
-  height: 44px;
+  height: 80px;
   width: auto;
 }
 
@@ -88,7 +88,7 @@ const collapsed = ref(false)
   border: 0;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.5rem;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
 }

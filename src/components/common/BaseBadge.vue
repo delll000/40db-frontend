@@ -68,9 +68,9 @@ withDefaults(
   border-color: rgba(183, 28, 28, 0.3);
 }
 .badge--info {
-  background: rgba(0, 77, 64, 0.1);
-  color: var(--color-primary);
-  border-color: rgba(0, 77, 64, 0.3);
+  background: rgba(2, 136, 209, 0.12);
+  color: var(--color-info);
+  border-color: rgba(2, 136, 209, 0.3);
 }
 .badge--neutral {
   background: var(--color-bg-alt);
