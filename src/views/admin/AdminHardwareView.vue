@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { useApiError } from '@/composables/useApiError'
 import { sensorsService } from '@/services/sensors.service'
@@ -14,6 +15,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseSelect from '@/components/common/BaseSelect.vue'
 import ReporteMapPicker from '@/components/reportes/ReporteMapPicker.vue'
+import HardwareMap from '@/components/mapa/HardwareMap.vue'
 import {
   ESTADO_SALUD_LABEL,
   type Sensor,
@@ -23,6 +25,7 @@ import type { Comuna } from '@/types/api'
 
 const toast = useToast()
 const { showError } = useApiError()
+const router = useRouter()
 
 // ── Catálogo de comunas (cacheado) ─────────────────────────────────
 const comunas = ref<Comuna[]>([])
@@ -33,6 +36,12 @@ const comunaOptions = computed(() => [
 const comunaOptionsRequired = computed(() =>
   comunas.value.map((c) => ({ value: String(c.id), label: c.nombre })),
 )
+
+// ── Vista activa y selección de mapa ───────────────────────────────
+const activeView = ref<'map' | 'list'>('map')
+const selectedSensor = ref<Sensor | null>(null)
+const mapSensors = ref<Sensor[]>([])
+const loadingMap = ref(false)
 
 // ── Filtros + listado paginado ─────────────────────────────────────
 const filterEstado = ref<SensorEstadoSalud | ''>('')
@@ -79,16 +88,75 @@ async function loadSensors(cursor?: string) {
   }
 }
 
+async function loadMapSensors() {
+  loadingMap.value = true
+  try {
+    const allFetchedSensors: Sensor[] = []
+    let cursor: string | null = null
+    let hasMore = true
+    let pagesFetched = 0
+
+    while (hasMore && pagesFetched < 5) {
+      const res = await sensorsService.list({
+        estado_salud: filterEstado.value || undefined,
+        comuna_id: filterComuna.value ? Number(filterComuna.value) : undefined,
+        activo:
+          filterActivo.value === '' ? undefined : filterActivo.value === 'true',
+        limit: 100, // Máximo permitido por validación del backend (le=100)
+        cursor: cursor || undefined,
+      })
+      allFetchedSensors.push(...res.data)
+      pagesFetched++
+      if (res.next_cursor) {
+        cursor = res.next_cursor
+      } else {
+        hasMore = false
+      }
+    }
+    
+    mapSensors.value = allFetchedSensors
+
+    // Si el sensor seleccionado ya no está en el listado filtrado, deseleccionar
+    if (selectedSensor.value && !allFetchedSensors.some((s) => s.id === selectedSensor.value!.id)) {
+      selectedSensor.value = null
+    }
+  } catch (e) {
+    showError(e, 'No se pudieron cargar los sensores para el mapa')
+  } finally {
+    loadingMap.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     comunas.value = await catalogosService.getComunas()
   } catch {
     // El listado sigue funcionando aunque no tengamos catálogo (mostramos `comuna_nombre` que viene del JOIN).
   }
-  await loadSensors()
+  
+  if (activeView.value === 'map') {
+    await loadMapSensors()
+  } else {
+    await loadSensors()
+  }
 })
 
-watch([filterEstado, filterComuna, filterActivo], () => loadSensors())
+watch([filterEstado, filterComuna, filterActivo], () => {
+  if (activeView.value === 'map') {
+    loadMapSensors()
+  } else {
+    loadSensors()
+  }
+})
+
+watch(activeView, (newView) => {
+  selectedSensor.value = null
+  if (newView === 'map' && mapSensors.value.length === 0) {
+    loadMapSensors()
+  } else if (newView === 'list' && sensors.value.length === 0) {
+    loadSensors()
+  }
+})
 
 // ── Modal Nuevo sensor ─────────────────────────────────────────────
 const createOpen = ref(false)
@@ -185,6 +253,8 @@ async function submitCreate() {
     })
     createdSensor.value = created
     sensors.value = [created, ...sensors.value]
+    mapSensors.value = [created, ...mapSensors.value]
+    selectedSensor.value = created // Seleccionar en el mapa automáticamente
     toast.success('Sensor provisionado', `${created.nombre} listo para vincularse al firmware.`)
   } catch (e) {
     showError(e, 'No se pudo crear el sensor')
@@ -251,6 +321,13 @@ async function submitEdit() {
     })
     const idx = sensors.value.findIndex((s) => s.id === updated.id)
     if (idx !== -1) sensors.value[idx] = updated
+
+    const idxMap = mapSensors.value.findIndex((s) => s.id === updated.id)
+    if (idxMap !== -1) mapSensors.value[idxMap] = updated
+    if (selectedSensor.value && selectedSensor.value.id === updated.id) {
+      selectedSensor.value = updated
+    }
+
     toast.success('Sensor actualizado', updated.nombre)
     editOpen.value = false
   } catch (e) {
@@ -277,6 +354,21 @@ async function confirmDelete() {
     if (idx !== -1) {
       sensors.value[idx] = {
         ...sensors.value[idx]!,
+        activo: false,
+        estado_salud: 'offline',
+      }
+    }
+    const idxMap = mapSensors.value.findIndex((s) => s.id === deleteTarget.value!.id)
+    if (idxMap !== -1) {
+      mapSensors.value[idxMap] = {
+        ...mapSensors.value[idxMap]!,
+        activo: false,
+        estado_salud: 'offline',
+      }
+    }
+    if (selectedSensor.value && selectedSensor.value.id === deleteTarget.value!.id) {
+      selectedSensor.value = {
+        ...selectedSensor.value,
         activo: false,
         estado_salud: 'offline',
       }
@@ -323,85 +415,190 @@ function formatLastReport(iso: string | null): string {
       </div>
     </header>
 
-    <!-- Filtros -->
-    <div class="page__filters">
-      <BaseSelect
-        v-model="filterEstado"
-        :options="[...estadoOptions]"
-        label="Estado de salud"
-      />
-      <BaseSelect
-        v-model="filterComuna"
-        :options="comunaOptions"
-        label="Comuna"
-      />
-      <BaseSelect
-        v-model="filterActivo"
-        :options="[...activoOptions]"
-        label="Activo"
-      />
+    <!-- Selector de vista (Tabs) y Filtros -->
+    <div class="page__controls">
+      <div class="view-tabs">
+        <button
+          type="button"
+          class="tab"
+          :class="{ 'tab--active': activeView === 'map' }"
+          @click="activeView = 'map'"
+        >
+          🗺️ Mapa de Sensores
+        </button>
+        <button
+          type="button"
+          class="tab"
+          :class="{ 'tab--active': activeView === 'list' }"
+          @click="activeView = 'list'"
+        >
+          📋 Lista de Sensores
+        </button>
+      </div>
+
+      <div class="page__filters">
+        <BaseSelect
+          v-model="filterEstado"
+          :options="[...estadoOptions]"
+          label="Estado de salud"
+        />
+        <BaseSelect
+          v-model="filterComuna"
+          :options="comunaOptions"
+          label="Comuna"
+        />
+        <BaseSelect
+          v-model="filterActivo"
+          :options="[...activoOptions]"
+          label="Activo"
+        />
+      </div>
     </div>
 
-    <!-- Listado -->
-    <BaseCard padding="none">
-      <div v-if="loading" class="page__center"><BaseSpinner size="lg" /></div>
+    <!-- Vista de Mapa (Default) -->
+    <div v-if="activeView === 'map'" class="map-container">
+      <div v-if="loadingMap" class="map-container__loader">
+        <BaseSpinner size="lg" />
+        <span class="map-container__loader-text">Cargando sensores en el mapa...</span>
+      </div>
+
+      <HardwareMap
+        v-model="selectedSensor"
+        :sensors="mapSensors"
+        class="map-container__map"
+      />
+
       <BaseEmpty
-        v-else-if="sensors.length === 0"
+        v-if="mapSensors.length === 0 && !loadingMap"
         icon="⚙"
         title="Sin sensores"
         message="No hay sensores que coincidan con el filtro. Provisiona uno con el botón Nuevo sensor."
+        class="map-container__empty"
       />
-      <table v-else class="tbl">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Comuna</th>
-            <th>Estado</th>
-            <th>Última lectura</th>
-            <th>Nivel</th>
-            <th class="tbl__col-actions">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="s in sensors" :key="s.id">
-            <td>
-              <div class="tbl__nombre">{{ s.nombre }}</div>
-              <code class="tbl__id">{{ s.id }}</code>
-            </td>
-            <td>{{ s.comuna_nombre }}</td>
-            <td>
-              <BaseBadge :tone="statusTone(s.estado_salud)" dot>
-                {{ ESTADO_SALUD_LABEL[s.estado_salud] }}
-              </BaseBadge>
-            </td>
-            <td>{{ formatLastReport(s.ultima_lectura_at) }}</td>
-            <td>
-              {{ s.ultima_lectura_db !== null ? `${s.ultima_lectura_db.toFixed(1)} dB(A)` : '—' }}
-            </td>
-            <td class="tbl__col-actions">
-              <BaseButton variant="ghost" size="sm" @click="openEdit(s)">Editar</BaseButton>
-              <BaseButton
-                v-if="s.activo"
-                variant="danger"
-                size="sm"
-                @click="askDelete(s)"
-              >
-                Dar de baja
-              </BaseButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </BaseCard>
 
-    <div v-if="nextCursor" class="page__more">
-      <BaseButton
-        variant="ghost"
-        :loading="loadingMore"
-        @click="loadSensors(nextCursor ?? undefined)"
-      >
-        Ver más sensores
-      </BaseButton>
+      <!-- Panel lateral de detalle (Drawer flotante) -->
+      <transition name="fade">
+        <div v-if="selectedSensor" class="sensor-detail">
+          <div class="sensor-detail__header">
+            <h3>{{ selectedSensor.nombre }}</h3>
+            <button type="button" class="sensor-detail__close" @click="selectedSensor = null" aria-label="Cerrar detalle">✕</button>
+          </div>
+          <div class="sensor-detail__body">
+            <div class="sensor-detail__item">
+              <span class="sensor-detail__label">Estado:</span>
+              <BaseBadge :tone="statusTone(selectedSensor.estado_salud)" dot>
+                {{ ESTADO_SALUD_LABEL[selectedSensor.estado_salud] }}
+              </BaseBadge>
+            </div>
+            <div class="sensor-detail__item">
+              <span class="sensor-detail__label">Última lectura:</span>
+              <span class="sensor-detail__value">{{ formatLastReport(selectedSensor.ultima_lectura_at) }}</span>
+            </div>
+            <div class="sensor-detail__item">
+              <span class="sensor-detail__label">Nivel actual:</span>
+              <span class="sensor-detail__value sensor-detail__value--highlight">
+                {{ selectedSensor.ultima_lectura_db !== null ? `${selectedSensor.ultima_lectura_db.toFixed(1)} dB(A)` : '—' }}
+              </span>
+            </div>
+            <div class="sensor-detail__item">
+              <span class="sensor-detail__label">Comuna:</span>
+              <span class="sensor-detail__value">{{ selectedSensor.comuna_nombre }}</span>
+            </div>
+            <div class="sensor-detail__item">
+              <span class="sensor-detail__label">Coordenadas:</span>
+              <span class="sensor-detail__value font-mono text-xs">
+                {{ selectedSensor.latitud.toFixed(5) }}, {{ selectedSensor.longitud.toFixed(5) }}
+              </span>
+            </div>
+            <div class="sensor-detail__item sensor-detail__item--vertical">
+              <span class="sensor-detail__label">UUID:</span>
+              <code class="sensor-detail__uuid">{{ selectedSensor.id }}</code>
+            </div>
+          </div>
+          <div class="sensor-detail__actions">
+            <BaseButton variant="secondary" size="sm" @click="openEdit(selectedSensor)">Editar</BaseButton>
+            <BaseButton
+              v-if="selectedSensor.activo"
+              variant="danger"
+              size="sm"
+              @click="askDelete(selectedSensor)"
+            >
+              Dar de baja
+            </BaseButton>
+            <BaseButton
+              variant="ghost"
+              size="sm"
+              @click="router.push(`/admin-dashboard/historial?sensor=${selectedSensor.id}`)"
+            >
+              Ver historial
+            </BaseButton>
+          </div>
+        </div>
+      </transition>
+    </div>
+
+    <!-- Vista de Lista (Paginada) -->
+    <div v-else class="list-container">
+      <BaseCard padding="none">
+        <div v-if="loading" class="page__center"><BaseSpinner size="lg" /></div>
+        <BaseEmpty
+          v-else-if="sensors.length === 0"
+          icon="⚙"
+          title="Sin sensores"
+          message="No hay sensores que coincidan con el filtro. Provisiona uno con el botón Nuevo sensor."
+        />
+        <table v-else class="tbl">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Comuna</th>
+              <th>Estado</th>
+              <th>Última lectura</th>
+              <th>Nivel</th>
+              <th class="tbl__col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in sensors" :key="s.id">
+              <td>
+                <div class="tbl__nombre">{{ s.nombre }}</div>
+                <code class="tbl__id">{{ s.id }}</code>
+              </td>
+              <td>{{ s.comuna_nombre }}</td>
+              <td>
+                <BaseBadge :tone="statusTone(s.estado_salud)" dot>
+                  {{ ESTADO_SALUD_LABEL[s.estado_salud] }}
+                </BaseBadge>
+              </td>
+              <td>{{ formatLastReport(s.ultima_lectura_at) }}</td>
+              <td>
+                {{ s.ultima_lectura_db !== null ? `${s.ultima_lectura_db.toFixed(1)} dB(A)` : '—' }}
+              </td>
+              <td class="tbl__col-actions">
+                <BaseButton variant="ghost" size="sm" @click="openEdit(s)">Editar</BaseButton>
+                <BaseButton
+                  v-if="s.activo"
+                  variant="danger"
+                  size="sm"
+                  @click="askDelete(s)"
+                >
+                  Dar de baja
+                </BaseButton>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </BaseCard>
+
+      <div v-if="nextCursor" class="page__more">
+        <BaseButton
+          variant="ghost"
+          :loading="loadingMore"
+          @click="loadSensors(nextCursor ?? undefined)"
+        >
+          Ver más sensores
+        </BaseButton>
+      </div>
     </div>
 
     <!-- Modal: nuevo sensor -->
@@ -591,6 +788,45 @@ function formatLastReport(iso: string | null): string {
   color: var(--color-text-muted);
 }
 
+.page__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.view-tabs {
+  display: flex;
+  gap: var(--space-1);
+  background: var(--color-bg-alt);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  max-width: 360px;
+}
+
+.tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: var(--font-semibold);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  text-align: center;
+}
+
+.tab:hover:not(:disabled):not(.tab--active) {
+  color: var(--color-text);
+}
+
+.tab--active {
+  background: var(--color-bg);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .page__filters {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -610,6 +846,188 @@ function formatLastReport(iso: string | null): string {
 .page__more {
   display: flex;
   justify-content: center;
+}
+
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 550px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.map-container__map {
+  width: 100%;
+  height: 100%;
+}
+
+.map-container__loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  z-index: 1010;
+  backdrop-filter: blur(2px);
+}
+
+.map-container__loader-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-weight: var(--font-medium);
+}
+
+.map-container__empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  background: var(--color-bg);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+
+.sensor-detail {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 1000;
+  width: 340px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  max-height: calc(100% - var(--space-8));
+  overflow-y: auto;
+  backdrop-filter: blur(4px);
+}
+
+@media (max-width: 640px) {
+  .sensor-detail {
+    top: auto;
+    bottom: var(--space-4);
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+    max-height: 250px;
+  }
+}
+
+.sensor-detail__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-2);
+}
+
+.sensor-detail__header h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--color-text);
+  word-break: break-word;
+  padding-right: var(--space-4);
+}
+
+.sensor-detail__close {
+  background: transparent;
+  border: none;
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.sensor-detail__close:hover {
+  color: var(--color-text);
+}
+
+.sensor-detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2.5);
+}
+
+.sensor-detail__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+}
+
+.sensor-detail__item--vertical {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.sensor-detail__label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-medium);
+}
+
+.sensor-detail__value {
+  color: var(--color-text);
+  text-align: right;
+}
+
+.sensor-detail__value--highlight {
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
+}
+
+.sensor-detail__uuid {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  word-break: break-all;
+  background: var(--color-bg-alt);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  width: 100%;
+}
+
+.sensor-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.sensor-detail__actions :deep(.btn) {
+  flex: 1;
+  min-width: 80px;
+  justify-content: center;
+}
+
+/* Transiciones */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 
 .tbl {
