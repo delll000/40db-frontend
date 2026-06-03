@@ -960,7 +960,7 @@ function formatLastReport(iso: string | null): string {
 .sensor-detail__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2.5);
+  gap: var(--space-2);
 }
 
 .sensor-detail__item {
