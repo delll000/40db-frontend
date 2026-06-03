@@ -22,6 +22,7 @@ import {
   ESTADOS_TERMINALES,
   ESTADO_TONE,
   ESTADO_TRANSICIONES,
+  ESTADO_LABEL,
   transicionRequiereComentario,
   type Reporte,
   type ReporteEstadoNombre,
@@ -176,7 +177,7 @@ async function aplicarCambio() {
     targetEstado.value = null
     comment.value = ''
     commentError.value = ''
-    toast.success(`Reporte ${updated.estado_actual}`, updated.titulo)
+    toast.success(`Reporte ${ESTADO_LABEL[updated.estado_actual]}`, updated.titulo)
   } catch (e) {
     if (isApiError(e, 'invalid_state_transition')) {
       // El back rechazó la transición — refrescar el detalle para reflejar el
@@ -226,7 +227,7 @@ function formatDate(iso: string): string {
         :value="breakdown['En espera']"
         sub="Sin asignar"
         icon="●"
-        tone="danger"
+        tone="warning"
         :loading="loading"
       />
       <KpiCard
@@ -234,7 +235,7 @@ function formatDate(iso: string): string {
         :value="breakdown['En atencion']"
         sub="En proceso"
         icon="◐"
-        tone="warning"
+        tone="info"
         :loading="loading"
       />
       <KpiCard
@@ -290,7 +291,7 @@ function formatDate(iso: string): string {
               <td>{{ r.titulo }}</td>
               <td>
                 <BaseBadge :tone="ESTADO_TONE[r.estado_actual]" dot>
-                  {{ r.estado_actual }}
+                  {{ ESTADO_LABEL[r.estado_actual] }}
                 </BaseBadge>
               </td>
               <td class="fh__col-actions">
@@ -321,7 +322,7 @@ function formatDate(iso: string): string {
         <div class="dlg__hero">
           <h3 class="dlg__titulo">{{ detalle.titulo }}</h3>
           <BaseBadge :tone="ESTADO_TONE[detalle.estado_actual]" dot>
-            {{ detalle.estado_actual }}
+            {{ ESTADO_LABEL[detalle.estado_actual] }}
           </BaseBadge>
         </div>
 
@@ -364,7 +365,7 @@ function formatDate(iso: string): string {
           <ul>
             <li v-for="(h, idx) in detalle.historial" :key="idx">
               <span class="dlg__hist-when">{{ formatDate(h.created_at) }}</span>
-              <BaseBadge :tone="ESTADO_TONE[h.estado]" size="sm">{{ h.estado }}</BaseBadge>
+              <BaseBadge :tone="ESTADO_TONE[h.estado]" size="sm">{{ ESTADO_LABEL[h.estado] }}</BaseBadge>
               <span v-if="h.usuario">
                 por <strong>{{ h.usuario.nombre }}</strong>
               </span>
@@ -400,18 +401,18 @@ function formatDate(iso: string): string {
               :disabled="saving"
               @click="targetEstado = t"
             >
-              {{ t }}
+              {{ ESTADO_LABEL[t] }}
             </BaseButton>
           </div>
 
           <div v-if="targetEstado" class="dlg__form">
             <p class="dlg__transition-info">
               <BaseBadge :tone="ESTADO_TONE[detalle.estado_actual]" size="sm">
-                {{ detalle.estado_actual }}
+                {{ ESTADO_LABEL[detalle.estado_actual] }}
               </BaseBadge>
               <span aria-hidden="true">→</span>
               <BaseBadge :tone="ESTADO_TONE[targetEstado]" size="sm">
-                {{ targetEstado }}
+                {{ ESTADO_LABEL[targetEstado] }}
               </BaseBadge>
             </p>
             <BaseInput

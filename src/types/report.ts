@@ -62,10 +62,17 @@ export const ESTADOS_TERMINALES: ReadonlySet<ReporteEstadoNombre> = new Set([
   'Descartado',
 ])
 
+export const ESTADO_LABEL: Record<ReporteEstadoNombre, string> = {
+  'En espera': 'En espera',
+  'En atencion': 'En atención',
+  Atendido: 'Atendido',
+  Descartado: 'Descartado',
+}
+
 /** Tono visual sugerido para badges. */
-export const ESTADO_TONE: Record<ReporteEstadoNombre, 'danger' | 'warning' | 'success' | 'neutral'> = {
-  'En espera': 'danger',
-  'En atencion': 'warning',
+export const ESTADO_TONE: Record<ReporteEstadoNombre, 'danger' | 'warning' | 'success' | 'neutral' | 'info'> = {
+  'En espera': 'warning',
+  'En atencion': 'info',
   Atendido: 'success',
   Descartado: 'neutral',
 }
@@ -74,3 +81,4 @@ export const ESTADO_TONE: Record<ReporteEstadoNombre, 'danger' | 'warning' | 'su
 export function transicionRequiereComentario(target: ReporteEstadoNombre): boolean {
   return target === 'Descartado'
 }
+
