@@ -1,0 +1,12 @@
+{
+  "id": "test-vecino-00000001",
+  "nombre": "Vecino Prueba",
+  "tipo": "ciudadano",
+  "activo": true,
+  "comuna_id": 1,
+  "comuna_nombre": "Las Condes",
+  "telefono": "+56912345001",
+  "email": "vecino@test.40db.cl",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
