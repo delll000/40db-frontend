@@ -1,0 +1,12 @@
+{
+  "id": "test-func-00000002",
+  "nombre": "Funcionario Prueba",
+  "tipo": "municipalidad",
+  "activo": true,
+  "comuna_id": 1,
+  "comuna_nombre": "Las Condes",
+  "telefono": "+56912345002",
+  "email": "funcionario@test.40db.cl",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}

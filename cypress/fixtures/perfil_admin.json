@@ -1,0 +1,12 @@
+{
+  "id": "test-admin-00000003",
+  "nombre": "Admin Prueba",
+  "tipo": "admin",
+  "activo": true,
+  "comuna_id": 1,
+  "comuna_nombre": "Las Condes",
+  "telefono": "+56912345003",
+  "email": "admin@test.40db.cl",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
