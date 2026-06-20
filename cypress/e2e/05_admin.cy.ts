@@ -45,9 +45,11 @@ describe('Flujo E2E: Administrador', () => {
 
   it('tabla de sensores muestra los datos del mock', () => {
     cy.visit('/admin-dashboard')
-    cy.contains('Estado de sensores').should('be.visible')
-    cy.contains('Sensor Norte Las Condes').should('be.visible')
-    cy.contains('Sensor Sur Las Condes').should('be.visible')
+    // La sección "Estado de sensores" está al final del dashboard, dentro de un
+    // contenedor con overflow; hay que llevarla al viewport antes de aseverar visibilidad.
+    cy.contains('Estado de sensores').scrollIntoView().should('be.visible')
+    cy.contains('Sensor Norte Las Condes').scrollIntoView().should('be.visible')
+    cy.contains('Sensor Sur Las Condes').scrollIntoView().should('be.visible')
   })
 
   it('navegación a sección Hardware muestra la vista de gestión de sensores', () => {

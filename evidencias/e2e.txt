@@ -1,0 +1,219 @@
+=== Ejecutado: 2026-06-19 con: env -u ELECTRON_RUN_AS_NODE npm run test:e2e ===
+=== Resultado: 31 casos, 31 passing, 0 failing (All specs passed) ===
+
+
+> 40db-frontend@0.0.0 test:e2e
+> start-server-and-test preview http://localhost:4173 'cypress run --e2e'
+
+1: starting server using command "npm run preview"
+and when url "[ 'http://localhost:4173' ]" is responding with HTTP status code 200
+running tests using command "cypress run --e2e"
+
+
+> 40db-frontend@0.0.0 preview
+> vite preview
+
+  ➜  Local:   http://localhost:4173/
+  ➜  Network: use --host to expose
+Warning: The allowCypressEnv configuration option is enabled. This allows any browser code to read values from Cypress.env(). This is insecure and will be removed in a future major version.
+
+1. Replace Cypress.env() calls with cy.env() (for sensitive values) or Cypress.expose() (for public configuration)
+2. Set allowCypressEnv: false in your Cypress configuration to disable Cypress.env()
+
+Learn more: https://on.cypress.io/cypress-env-migration
+
+
+================================================================================
+
+  (Run Starting)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Cypress:        15.14.0                                                                        │
+  │ Browser:        Electron 138 (headless)                                                        │
+  │ Node Version:   v24.16.0 (/usr/local/bin/node)                                                 │
+  │ Specs:          5 found (02_auth.cy.ts, 03_vecino.cy.ts, 04_funcionario.cy.ts, 05_admin.cy.ts, │
+  │                  home.cy.ts)                                                                   │
+  │ Searched:       cypress/e2e/**/*.{cy,spec}.{js,jsx,ts,tsx}                                     │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  02_auth.cy.ts                                                                   (1 of 5)
+
+
+  Guardas de ruta y autenticación
+    ✓ ruta protegida /vecino-home redirige a /auth sin sesión (567ms)
+    ✓ ruta de admin /admin-dashboard redirige a /auth sin sesión (169ms)
+    ✓ ruta de funcionario /funcionario-home redirige a /auth sin sesión (220ms)
+    ✓ página /auth muestra los dos tabs del formulario (231ms)
+    ✓ formulario de login tiene los campos de correo y contraseña (233ms)
+    ✓ tab Crear cuenta muestra campo adicional de nombre (282ms)
+    ✓ usuario escribe sus credenciales en el formulario de login (928ms)
+    ✓ al cambiar a "Crear cuenta" se muestran tres campos y el botón cambia de texto (1233ms)
+    ✓ vecino autenticado que visita /admin-dashboard es redirigido a /vecino-home (763ms)
+
+
+  9 passing (5s)
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        9                                                                                │
+  │ Passing:      9                                                                                │
+  │ Failing:      0                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  0                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     4 seconds                                                                        │
+  │ Spec Ran:     02_auth.cy.ts                                                                    │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  03_vecino.cy.ts                                                                 (2 of 5)
+
+
+  Flujo E2E: Vecino
+    ✓ vecino autenticado accede a /vecino-home y ve saludo personalizado (810ms)
+    ✓ sección KPIs muestra las tarjetas de resumen de zona (382ms)
+    ✓ botón "Realizar reporte" abre el modal con el formulario (591ms)
+    ✓ flujo completo: rellena el formulario de reporte, intenta enviar y ve validación (4789ms)
+    ✓ sección "Mis reportes recientes" muestra los reportes del mock (520ms)
+    ✓ al hacer clic en un reporte de la lista se abre el modal de detalle (569ms)
+
+
+  6 passing (8s)
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        6                                                                                │
+  │ Passing:      6                                                                                │
+  │ Failing:      0                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  0                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     7 seconds                                                                        │
+  │ Spec Ran:     03_vecino.cy.ts                                                                  │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  04_funcionario.cy.ts                                                            (3 of 5)
+
+
+  Flujo E2E: Funcionario
+    ✓ funcionario autenticado accede a /funcionario-home y ve el título principal (733ms)
+    ✓ se muestran los KPIs de estado (En espera, En atención, Atendidos, Descartados) (318ms)
+    ✓ la tabla de reportes muestra los datos del mock (332ms)
+    ✓ el select de filtro por estado está disponible y dispara un nuevo request al cambiar (501ms)
+    ✓ al hacer clic en "Ver detalle" se abre el modal de detalle del reporte (468ms)
+    ✓ flujo completo: abre detalle, escribe comentario y cambia estado a En atención (1443ms)
+    ✓ el modal de detalle muestra información del reporte y sección de cambio de estado (504ms)
+
+
+  7 passing (5s)
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        7                                                                                │
+  │ Passing:      7                                                                                │
+  │ Failing:      0                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  0                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     4 seconds                                                                        │
+  │ Spec Ran:     04_funcionario.cy.ts                                                             │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  05_admin.cy.ts                                                                  (4 of 5)
+
+
+  Flujo E2E: Administrador
+    ✓ admin autenticado accede a /admin-dashboard y ve saludo personalizado (694ms)
+    ✓ dashboard muestra los KPIs de salud de sensores (315ms)
+    ✓ dashboard muestra la sección de accesos rápidos con los 5 módulos (316ms)
+    ✓ tabla de sensores muestra los datos del mock (376ms)
+    ✓ navegación a sección Hardware muestra la vista de gestión de sensores (461ms)
+    ✓ navegación directa a /admin-dashboard/usuarios carga la vista (305ms)
+    ✓ el sidebar de admin contiene los enlaces de navegación principales (278ms)
+
+
+  7 passing (3s)
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        7                                                                                │
+  │ Passing:      7                                                                                │
+  │ Failing:      0                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  0                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     2 seconds                                                                        │
+  │ Spec Ran:     05_admin.cy.ts                                                                   │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+  Running:  home.cy.ts                                                                      (5 of 5)
+
+
+  Landing pública
+    ✓ carga / y renderiza el hero de la home (273ms)
+    ✓ expone el CTA de iniciar sesión (122ms)
+
+
+  2 passing (449ms)
+
+
+  (Results)
+
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ Tests:        2                                                                                │
+  │ Passing:      2                                                                                │
+  │ Failing:      0                                                                                │
+  │ Pending:      0                                                                                │
+  │ Skipped:      0                                                                                │
+  │ Screenshots:  0                                                                                │
+  │ Video:        false                                                                            │
+  │ Duration:     0 seconds                                                                        │
+  │ Spec Ran:     home.cy.ts                                                                       │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+
+  (Run Finished)
+
+
+       Spec                                              Tests  Passing  Failing  Pending  Skipped  
+  ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │ ✔  02_auth.cy.ts                            00:04        9        9        -        -        - │
+  ├────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ ✔  03_vecino.cy.ts                          00:07        6        6        -        -        - │
+  ├────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ ✔  04_funcionario.cy.ts                     00:04        7        7        -        -        - │
+  ├────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ ✔  05_admin.cy.ts                           00:02        7        7        -        -        - │
+  ├────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ ✔  home.cy.ts                               452ms        2        2        -        -        - │
+  └────────────────────────────────────────────────────────────────────────────────────────────────┘
+    ✔  All specs passed!                        00:20       31       31        -        -        -  
+
