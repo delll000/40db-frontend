@@ -575,15 +575,17 @@ function formatLastReport(iso: string | null): string {
                 {{ s.ultima_lectura_db !== null ? `${s.ultima_lectura_db.toFixed(1)} dB(A)` : '—' }}
               </td>
               <td class="tbl__col-actions">
-                <BaseButton variant="ghost" size="sm" @click="openEdit(s)">Editar</BaseButton>
-                <BaseButton
-                  v-if="s.activo"
-                  variant="danger"
-                  size="sm"
-                  @click="askDelete(s)"
-                >
-                  Dar de baja
-                </BaseButton>
+                <div class="tbl__actions">
+                  <BaseButton variant="ghost" size="sm" @click="openEdit(s)">Editar</BaseButton>
+                  <BaseButton
+                    v-if="s.activo"
+                    variant="danger"
+                    size="sm"
+                    @click="askDelete(s)"
+                  >
+                    Dar de baja
+                  </BaseButton>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -1065,6 +1067,8 @@ function formatLastReport(iso: string | null): string {
 }
 .tbl__col-actions {
   white-space: nowrap;
+}
+.tbl__actions {
   display: flex;
   gap: var(--space-2);
   align-items: flex-start;
