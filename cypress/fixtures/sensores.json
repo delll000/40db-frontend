@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "id": "sen-00000001",
+      "nombre": "Sensor Norte Las Condes",
+      "comuna_id": 1,
+      "comuna_nombre": "Las Condes",
+      "latitud": -33.4,
+      "longitud": -70.6,
+      "activo": true,
+      "estado_salud": "online",
+      "ultima_lectura_at": "2025-06-03T12:00:00Z",
+      "ultima_lectura_db": 62.5
+    },
+    {
+      "id": "sen-00000002",
+      "nombre": "Sensor Sur Las Condes",
+      "comuna_id": 1,
+      "comuna_nombre": "Las Condes",
+      "latitud": -33.42,
+      "longitud": -70.59,
+      "activo": true,
+      "estado_salud": "intermitente",
+      "ultima_lectura_at": "2025-06-03T11:00:00Z",
+      "ultima_lectura_db": 58.0
+    }
+  ],
+  "next_cursor": null
+}

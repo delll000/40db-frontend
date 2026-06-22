@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "id": "rep-00000001",
+      "titulo": "Ruido excesivo vecino del 3B",
+      "estado_actual": "En espera",
+      "created_at": "2025-06-01T14:30:00Z"
+    },
+    {
+      "id": "rep-00000002",
+      "titulo": "Fiesta con música hasta las 4am",
+      "estado_actual": "En atencion",
+      "created_at": "2025-06-02T08:00:00Z"
+    },
+    {
+      "id": "rep-00000003",
+      "titulo": "Obras sin permiso en fin de semana",
+      "estado_actual": "Atendido",
+      "created_at": "2025-06-03T10:00:00Z"
+    }
+  ],
+  "next_cursor": null
+}

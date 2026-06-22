@@ -1,0 +1,13 @@
+
+> 40db-frontend@0.0.0 test:unit:run
+> vitest run
+
+
+ RUN  v4.1.4 /Users/del./Documents/Github/40db-frontend
+
+
+ Test Files  6 passed (6)
+      Tests  32 passed (32)
+   Start at  23:08:17
+   Duration  2.03s (transform 964ms, setup 0ms, import 1.54s, tests 153ms, environment 8.11s)
+
