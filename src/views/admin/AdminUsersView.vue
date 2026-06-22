@@ -269,23 +269,25 @@ function formatDate(iso: string): string {
             </td>
             <td>{{ formatDate(u.created_at) }}</td>
             <td class="tbl__col-actions">
-              <BaseButton
-                variant="ghost"
-                size="sm"
-                :disabled="u.id === auth.profile?.id"
-                @click="openPromote(u)"
-              >
-                Cambiar rol
-              </BaseButton>
-              <BaseButton
-                :variant="u.activo ? 'danger' : 'primary'"
-                size="sm"
-                :loading="togglingId === u.id"
-                :disabled="u.id === auth.profile?.id"
-                @click="toggleActivo(u)"
-              >
-                {{ u.activo ? 'Desactivar' : 'Reactivar' }}
-              </BaseButton>
+              <div class="tbl__actions">
+                <BaseButton
+                  variant="ghost"
+                  size="sm"
+                  :disabled="u.id === auth.profile?.id"
+                  @click="openPromote(u)"
+                >
+                  Cambiar rol
+                </BaseButton>
+                <BaseButton
+                  :variant="u.activo ? 'danger' : 'primary'"
+                  size="sm"
+                  :loading="togglingId === u.id"
+                  :disabled="u.id === auth.profile?.id"
+                  @click="toggleActivo(u)"
+                >
+                  {{ u.activo ? 'Desactivar' : 'Reactivar' }}
+                </BaseButton>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -421,6 +423,8 @@ function formatDate(iso: string): string {
 }
 .tbl__col-actions {
   white-space: nowrap;
+}
+.tbl__actions {
   display: flex;
   gap: var(--space-2);
   align-items: flex-start;
